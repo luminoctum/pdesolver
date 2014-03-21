@@ -13,16 +13,18 @@ template<int N> struct Variable{};
 template<>
 struct Variable<0>{
     typedef double Element_t;
+    typedef Array<1, Element_t> Array_t;
     Variable(){};
-    Variable(Interval<1> cx, Interval<1> si){
+    Variable(Interval<1> cx, Interval<1> sx){
         cell.initialize(cx);
-        wall.initialize(si);
+        wallm.initialize(sx);
+        wallp.initialize(sx);
     }
     static std::string name;
-    static Array<1, Element_t> cell;
-    static Array<1, Element_t> wall;
+    static Array_t cell;
+    static Array_t wallm;
+    static Array_t wallp;
     typedef Int2Type<0> ctag;
-    typedef Int2Type<1> ptag;
     //typedef Boundary<Reflective, LinearExtrap, ConstExtrap, ConstExtrap> bd;
     typedef LinearExtrap bd;
 };
@@ -30,26 +32,30 @@ std::string Variable<0>::name = "uwind";
 template<>
 struct Variable<1>{
     typedef Vector<2> Element_t;
+    typedef Array<1, Element_t> Array_t;
     Variable(){};
-    Variable(Interval<1> cx, Interval<1> si){
+    Variable(Interval<1> cx, Interval<1> sx){
         cell.initialize(cx);
-        wall.initialize(si);
+        wallm.initialize(sx);
+        wallp.initialize(sx);
     }
     static std::string name;
-    static Array<1, Element_t> cell;
-    static Array<1, Element_t> wall;
+    static Array_t cell;
+    static Array_t wallm;
+    static Array_t wallp;
     typedef Int2Type<1> ctag;
-    typedef Int2Type<0> ptag;
     //typedef Boundary<FixedConst<Element_t, 1>, Mirror, ConstExtrap, ConstExtrap> bd;
     typedef ConstExtrap bd;
 };
 std::string Variable<1>::name = "vwind";
 
 /* explicit definition for static variables */
-Array<1, Variable<0>::Element_t> Variable<0>::cell;
-Array<1, Variable<0>::Element_t> Variable<0>::wall;
-Array<1, Variable<1>::Element_t> Variable<1>::cell;
-Array<1, Variable<1>::Element_t> Variable<1>::wall;
+Variable<0>::Array_t Variable<0>::cell;
+Variable<0>::Array_t Variable<0>::wallm;
+Variable<0>::Array_t Variable<0>::wallp;
+Variable<1>::Array_t Variable<1>::cell;
+Variable<1>::Array_t Variable<1>::wallm;
+Variable<1>::Array_t Variable<1>::wallp;
 
 /* Test for a system of multi variables */
 template<class ET>
