@@ -15,3 +15,8 @@ Current work:
 -------------
 
 Adding support for 1dnv
+
+1. Each variable is a distinct partial specialization of a tempalted class ... done
+2. Each variable has its own (cell, wall) value, boundary condtion and property tags ... done
+3. Based on loop unrooling techniques to loop over variables ...done
+4. modify ENO/WENO reconstruct process to store the wall flux
