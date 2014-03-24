@@ -51,9 +51,9 @@ protected:
 public:
     ENOScheme(){ setEnoc(); }
     /* scalar reconstruction */
-    template<class A, class I> void 
-    static construct(A, I ci, Int2Type<0>){
-        I si(ci.first(), ci.last() + 1);
+    template<class A> void 
+    static construct(A, Interval<1> ci, Int2Type<0>){
+        Interval<1> si(ci.first(), ci.last() + 1);
         int jmin, jmax;
         A::wallm = 0; A::wallp = 0;
         for (int i = ci.first() - 1; i <= ci.last() + 1; i++){
@@ -65,10 +65,37 @@ public:
             }
         }
     }
+    template<class A> void 
+    static construct(A, Interval<2> cij, Int2Type<0>){
+        Interval<1> cx = A::cell.domain()[0];
+        Interval<1> cy = A::cell.domain()[1];
+        int jmin, jmax;
+        A::wallXm = 0; A::wallXp = 0;
+        A::wallYm = 0; A::wallYp = 0;
+        for (int j = cij[1].first(); j <= cij[1].last(); j++){
+            for (int i = cij[0].first() - 1; i <= cij[0].last() + 1; i++){
+                jmin = i; jmax = i;
+                adaptiveStencil(A::cell(cx, j), jmin, jmax);
+                for (int m = 0; m < ORDER; m++){
+                    A::wallXp(i, j) += enoc(i - jmin - 1, m) * A::cell(jmin + m, j);
+                    A::wallXm(i + 1, j) += enoc(i - jmin, m) * A::cell(jmin + m, j);
+                }
+            }
+        }
+        for (int j = cij[0].first(); j <= cij[0].last(); j++){
+            for (int i = cij[1].first() - 1; i <= cij[1].last() + 1; i++){
+                jmin = i; jmax = i;
+                adaptiveStencil(A::cell(j, cy), jmin, jmax);
+                for (int m = 0; m < ORDER; m++){
+                    A::wallYp(j, i) += enoc(i - jmin - 1, m) * A::cell(j, jmin + m);
+                    A::wallYm(j, i + 1) += enoc(i - jmin, m) * A::cell(j, jmin + m);
+                }
+            }
+        }
+    }
     /* componentwise reconstruction */
-    template<class A, class I> void 
-    static construct(A, I ci, Int2Type<1>){
-        I si(ci.first(), ci.last() + 1);
+    template<class A> void 
+    static construct(A, Interval<1> ci, Int2Type<1>){
         int jmin, jmax;
         enum {ncomp = A::Element_t::d1};
         A::wallm = 0; A::wallp = 0;
@@ -83,10 +110,42 @@ public:
             }
         }
     }
+    template<class A> void 
+    static construct(A, Interval<2> cij, Int2Type<1>){
+        Interval<1> cx = A::cell.domain()[0];
+        Interval<1> cy = A::cell.domain()[1];
+        int jmin, jmax;
+        enum {ncomp = A::Element_t::d1};
+        A::wallXm = 0; A::wallXp = 0;
+        A::wallYm = 0; A::wallYp = 0;
+        for (int j = cij[1].first(); j <= cij[1].last(); j++){
+            for (int i = cij[0].first() - 1; i <= cij[0].last() + 1; i++){
+                for (int s = 0; s < ncomp; s++){
+                    jmin = i; jmax = i;
+                    adaptiveStencil(A::cell(cx, j).comp(s), jmin, jmax);
+                    for (int m = 0; m < ORDER; m++){
+                        A::wallXp(i, j)(s) += enoc(i - jmin - 1, m) * A::cell(jmin + m, j)(s);
+                        A::wallXm(i + 1, j)(s) += enoc(i - jmin, m) * A::cell(jmin + m, j)(s);
+                    }
+                }
+            }
+        }
+        for (int j = cij[0].first(); j <= cij[0].last(); j++){
+            for (int i = cij[1].first() - 1; i <= cij[1].last() + 1; i++){
+                for (int s = 0; s < ncomp; s++){
+                    jmin = i; jmax = i;
+                    adaptiveStencil(A::cell(j, cy).comp(s), jmin, jmax);
+                    for (int m = 0; m < ORDER; m++){
+                        A::wallYp(j, i)(s) += enoc(i - jmin - 1, m) * A::cell(j, jmin + m)(s);
+                        A::wallYm(j, i + 1)(s) += enoc(i - jmin, m) * A::cell(j, jmin + m)(s);
+                    }
+                }
+            }
+        }
+    }
     /* characteristic reconstruction */
-    template<class A, class I> void 
-    static construct(A, const I& ci, Int2Type<2>){
-        I si(ci.first(), ci.last() + 1);
+    template<class A> void 
+    static construct(A, Interval<1> ci, Int2Type<2>){
         int jmin, jmax;
         enum {ncomp = A::Element_t::d1};
         // assuming double here
@@ -94,7 +153,7 @@ public:
         Vector<ncomp> vleft, vright;
         for (int i = ci.first() - 1; i <= ci.last() + 1; i++){
             vleft = 0.; vright = 0.;
-            typename A::Array_t va(I(i - ORDER + 1, i + ORDER - 1));
+            typename A::Array_t va(Interval<1>(i - ORDER + 1, i + ORDER - 1));
             // want to get the number of components
             // For characteristic reconstruction, A must have dfluxdu method
             EigenSystem<ncomp>::solve(A::dfluxdu(i), lp, ep, rp);

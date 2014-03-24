@@ -28,5 +28,7 @@ Adding support for 1dnv
         - Entropy fix ... TODO
     - In order to use loop unrolling for variables, all the functions has to be static
     - this means that you want to generate a look up table for ENO/WENO coefficients, using mathematcia ... TODO
-    - NCfile IO ... 
-    - 2D multivariable model
+5. 2D multivariable model ... ON GOING
+    - NCfile IO ... DONE
+    - 2D Reconstruction using ENO Scheme ... DONE
+    - update diaganostic variable ... ON GOING
