@@ -1,5 +1,6 @@
 #ifndef PDESOLVER
 #define PDESOLVER
+#include "NcFileIO.h"
 #include "Stencil.h"
 #include "Boundary.h"
 
@@ -8,7 +9,8 @@ template<int DIM, class ET, template<int,class> class OPT>
 class PDESolver : 
     public OPT<DIM, ET>::Equation, 
     public OPT<DIM, ET>::Spatial,
-    public Godunov<DIM>
+    public Godunov<DIM>,
+    public NcFileIO
 {
     typedef ET Element_t;
     typedef Array<DIM, ET> Array_t;
@@ -16,12 +18,29 @@ class PDESolver :
     typedef typename OPT<DIM, ET>::Spatial Spatial;
     typedef typename OPT<DIM, ET>::Equation Equation;
 private:
-    double cfl, dt, dx;
+    double cfl, dt, dx, time;
     int nx, gl;
     Interval_t ci, cx, si, sx;
     Stencil<Difference> diff;
+    static Array_t buffer_out;
     //FluxBuffer<DIM, ET> buffer;
     template<template<int> class T, int N> struct Loop{
+        // output vector into ncfile
+        template<class D, class I, int SZ, class VET>
+        static void observe(long current, const D& nc, I ci, Vector<SZ, VET>){
+            for (int i = 0; i < T<N>::Element_t::d1; i++){
+                buffer_out = T<N>::cell.comp(i)(ci);
+                //nc.get_var(T<N>::name[i].c_str())->put_rec(&buffer_out(0, 0), current);
+            }
+            Loop<T, N - 1>::observe(current, nc, ci, typename T<N - 1>::Element_t());
+        }
+        // output scalar into ncfile
+        template<class D, class I, class SET>
+        static void observe(long current, const D& nc, I ci, SET){
+            buffer_out = T<N>::cell(ci);
+            //nc.get_var(T<N>::name.c_str())->put_rec(&buffer_out(0, 0), current);
+            Loop<T, N - 1>::observe(current, nc, ci, typename T<N - 1>::Element_t());
+        }
         template<class I>
         static void observe(I ci, I si){
             std::cout << T<N>::name << std::endl;
@@ -55,6 +74,20 @@ private:
     };
     // note: if you missed the "STRUCT" you will have infinite loops when compiling
     template<template<int> class T> struct Loop<T, 0>{
+        // output vector into ncfile
+        template<class D, class I, int SZ, class VET>
+        static void observe(long current, const D& nc, I ci, Vector<SZ, VET>){
+            for (int i = 0; i < T<0>::Element_t::d1; i++){
+                buffer_out = T<0>::cell.comp(i)(ci);
+                //nc.get_var(T<0>::name[i].c_str())->put_rec(&buffer_out(0, 0), current);
+            }
+        }
+        // output scalar into ncfile
+        template<class D, class I, class SET>
+        static void observe(long current, const D& nc, I ci, SET){
+            buffer_out = T<0>::cell(ci);
+            //nc.get_var(T<0>::name.c_str())->put_rec(&buffer_out(0, 0), current);
+        }
         template<class I>
         static void observe(I ci, I si){
             std::cout << T<0>::name << std::endl;
@@ -83,14 +116,16 @@ private:
 public:
     PDESolver(){}
     PDESolver(int _nx, int _gl, double _cfl) : 
-        nx(_nx), gl(_gl), cfl(_cfl)
+        nx(_nx), gl(_gl), cfl(_cfl), NcFileIO("dynamics.nc")
     {
         Interval_t _ci(0, _nx - 1);
         Interval_t _cx(- gl, _nx + _gl - 1);
         Interval_t _si(0, _nx);
         Interval_t _sx(-1, _nx + 1);
         ci = _ci; si = _si; cx = _cx, sx = _sx;
+        buffer_out.initialize(ci);
         initialize();
+        std::cout << ncvar["phi"] << std::endl;
     }
     void initialize(){
         Loop<Variable, 2>::initialize(cx, sx);
@@ -107,8 +142,14 @@ public:
     void solve(double tend){
     }
     void observe(){ 
-        Loop<Variable, 2>::observe(ci, si);
+        this->current++;
+        NcFile dataFile(this->filename.c_str(), NcFile::Write);
+        Loop<Variable, 2>::observe(this->current, dataFile, ci, typename Variable<2>::Element_t());
+        dataFile.get_var("time")->put_rec(&time, this->current);
     }
 };
+
+template<int DIM, class ET, template<int,class> class OPT>
+Array<DIM, ET> PDESolver<DIM, ET, OPT>::buffer_out;
 
 #endif

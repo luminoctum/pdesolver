@@ -63,7 +63,7 @@ struct Variable<2>{
         wallp.initialize(sx);
         flux.initialize(sx);
     }
-    static std::string name;
+    static std::string name[2];
     static Array_t cell, wallm, wallp, flux;
     typedef Int2Type<1> ctag;
     //typedef Boundary<FixedConst<Element_t, 1>, Mirror, ConstExtrap, ConstExtrap> bd;
@@ -73,7 +73,7 @@ struct Variable<2>{
         return ua - ub;
     }
 };
-std::string Variable<2>::name = "vwind";
+std::string Variable<2>::name[2] = {"vwind1", "vwind2"};
 
 /* explicit definition for static variables */
 Variable<0>::Array_t Variable<0>::cell;

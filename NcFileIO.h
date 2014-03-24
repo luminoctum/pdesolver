@@ -4,14 +4,13 @@
 #include <map>
 #include "netcdf.hh"
 
-template<class DIM, class ET>
 class NcFileIO{
-    typedef ET Element_t;
-    typedef Array<DIM, ET> Array_t;
+    typedef double Element_t;
+    typedef Array<2, double> Array_t;
 protected:
     std::string filename;
     std::map<std::string, Array_t> ncvar;
-    Array_t buffer_in, buffer_out;
+    Array_t buffer_in;
     long current;
     int nx, ny, gl;
     double xlen, ylen;
@@ -76,6 +75,7 @@ public:
         dx      = xlen / (nx - 1);
         dy      = ylen / (ny - 1);
     }
+    /*
     template<class A, class B>
     void ncwrite(const A& var, const B& vattr, double time){
         current++;
@@ -85,7 +85,7 @@ public:
             dataFile.get_var(vattr[i].name.c_str())->put_rec(&buffer_out(0, 0), current);
         }
         dataFile.get_var("time")->put_rec(&time, current);
-    }
+    }*/
 };
 
 #endif
