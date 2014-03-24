@@ -31,4 +31,6 @@ Adding support for 1dnv
 5. 2D multivariable model ... ON GOING
     - NCfile IO ... DONE
     - 2D Reconstruction using ENO Scheme ... DONE
-    - update diaganostic variable ... ON GOING
+    - update diaganostic variable ... DONE
+        - add support for microphysics / condensing, releasing latent heat ... DONE
+    - 2D flux calculation ... ON GOING

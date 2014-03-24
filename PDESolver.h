@@ -124,7 +124,8 @@ private:
     double model_time;
     Interval<1> ci, cj, cx, cy, si, sj, sx, sy;
     Interval_t cij, cxy, sIj, siJ, sXy, sxY, ijpeek;
-    Stencil<Difference> diff;
+    Stencil<ForwardDifferenceX> diffx;
+    Stencil<ForwardDifferenceY> diffy;
     static Array_t buffer_out;
 
 public:
@@ -147,35 +148,46 @@ public:
         sxY = Interval_t(cx, sy);
         initialize();
         buffer_out.initialize(cij);
+        ForwardDifferenceX::dx = dx;
+        ForwardDifferenceY::dy = dy;
+        std::cout << dx << std::endl;
+        std::cout << dy << std::endl;
+        this->finty.dy = dy;
+        this->binty.dy = dy;
     }
     void initialize(){
-        Loop<Variable, 7>::initialize(cxy, sXy, sxY);
+        Loop<Variable, 8>::initialize(cxy, sXy, sxY);
         this->uwind.cell(cij) = ncvar["uwind"];
         this->vwind.cell(cij) = ncvar["vwind"];
         this->theta.cell(cij) = ncvar["tc"];
-        this->mixr.cell.comp(0)(cij) = ncvar["xH2O"];
-        this->mixr.cell.comp(1)(cij) = ncvar["xNH3"];
-        this->mixr.cell.comp(2)(cij) = ncvar["qH2O"];
-        this->mixr.cell.comp(3)(cij) = ncvar["qNH3"];
+        this->mixr.cell(cij).comp(0) = ncvar["xH2O"];
+        this->mixr.cell(cij).comp(1) = ncvar["xNH3"];
         this->phi.cell(cij) = ncvar["phi"];
         this->wwind.cell(cij) = ncvar["wwind"];
-        this->temp.cell(cij) = ncvar["temp"];
-        this->rh.cell.comp(0)(cij) = ncvar["hH2O"];
-        this->rh.cell.comp(1)(cij) = ncvar["hNH3"];
+        this->temp.cell(cij).comp(0) = ncvar["temp"];
+        this->temp.cell(cij).comp(1) = ncvar["tempv"];
+        this->moist.cell(cij).comp(0) = ncvar["svpH2O"];
+        this->moist.cell(cij).comp(1) = ncvar["svpNH3"];
+        this->moist.cell(cij).comp(2) = ncvar["hH2O"];
+        this->moist.cell(cij).comp(3) = ncvar["hNH3"];
+        this->moist.cell(cij).comp(4) = ncvar["qH2O"];
+        this->moist.cell(cij).comp(5) = ncvar["qNH3"];
+        this->pdry.cell(cij) = ncvar["pdry"];
 
         ijpeek = Interval_t(Interval<1>(5, 10), Interval<1>(5, 10));
-        Loop<Variable, 7>::fixBoundary(cij);
+        Loop<Variable, 8>::fixBoundary(cij);
         //std::cout << this->mixr.cell.comp(0) << std::endl;
         Loop<Variable, 3>::cell2wall(cij);
         //Loop<Variable, 2>::wall2flux(Variable<0>::wallm, Variable<0>::wallp, sij);
-        Loop<Variable, 3>::observe(ijpeek);
+        //Loop<Variable, 3>::observe(ijpeek);
     };
     void solve(double tend){
+        updateDiagnostics(ncvar, cij);
     }
     void observe(){ 
         this->current++;
         NcFile dataFile(this->filename.c_str(), NcFile::Write);
-        Loop<Variable, 7>::observe(this->current, dataFile, cij, typename Variable<7>::Element_t());
+        Loop<Variable, 8>::observe(this->current, dataFile, cij, typename Variable<8>::Element_t());
         dataFile.get_var("time")->put_rec(&model_time, this->current);
     }
 };
