@@ -7,7 +7,8 @@
 template<int DIM, class ET, template<int,class> class OPT>
 class PDESolver : 
     public OPT<DIM, ET>::Equation, 
-    public OPT<DIM, ET>::Spatial
+    public OPT<DIM, ET>::Spatial,
+    public Godunov<DIM>
 {
     typedef ET Element_t;
     typedef Array<DIM, ET> Array_t;
@@ -21,9 +22,14 @@ private:
     Stencil<Difference> diff;
     //FluxBuffer<DIM, ET> buffer;
     template<template<int> class T, int N> struct Loop{
-        static void printName(){
+        template<class I>
+        static void observe(I ci, I si){
             std::cout << T<N>::name << std::endl;
-            Loop<T, N - 1>::printName();
+            std::cout << T<N>::cell(ci);
+            std::cout << T<N>::wallm(si);
+            std::cout << T<N>::wallp(si);
+            std::cout << T<N>::flux(si) << std::endl;
+            Loop<T, N - 1>::observe(ci, si);
         }
         template<class I>
         static void initialize(I cx, I sx){
@@ -37,15 +43,25 @@ private:
         }
         template<class I>
         //note: static member function doesnot have a this parameter
-        static void wallConstruct(I ci){
+        static void cell2wall(I ci){
             construct(T<N>(), ci, typename T<N>::ctag());
-            Loop<T, N - 1>::wallConstruct(ci);
+            Loop<T, N - 1>::cell2wall(ci);
+        }
+        template<class W, class I>
+        static void wall2flux(const W& windm, const W& windp, I si){
+            wallFlux(T<N>(), windm, windp, si, typename T<N>::ctag());
+            Loop<T, N - 1>::wall2flux(windm, windp, si);
         }
     };
     // note: if you missed the "STRUCT" you will have infinite loops when compiling
     template<template<int> class T> struct Loop<T, 0>{
-        static void printName(){
+        template<class I>
+        static void observe(I ci, I si){
             std::cout << T<0>::name << std::endl;
+            std::cout << T<0>::cell(ci);
+            std::cout << T<0>::wallm(si);
+            std::cout << T<0>::wallp(si);
+            std::cout << T<0>::flux(si) << std::endl;
         }
         template<class I>
         static void initialize(I cx, I sx){
@@ -56,8 +72,12 @@ private:
             T<0>::bd::fix(T<0>::cell, ci);
         }
         template<class I>
-        static void wallConstruct(I ci){
+        static void cell2wall(I ci){
             construct(T<0>(), ci, typename T<0>::ctag());
+        }
+        template<class W, class I>
+        static void wall2flux(const W& windm, const W& windp, I si){
+            wallFlux(T<0>(), windm, windp, si, typename T<0>::ctag());
         }
     };
 public:
@@ -68,29 +88,26 @@ public:
         Interval_t _ci(0, _nx - 1);
         Interval_t _cx(- gl, _nx + _gl - 1);
         Interval_t _si(0, _nx);
-        Interval_t _sx(-1, _nx);
+        Interval_t _sx(-1, _nx + 1);
         ci = _ci; si = _si; cx = _cx, sx = _sx;
         initialize();
     }
     void initialize(){
-        Loop<Variable, 1>::printName();
-        Loop<Variable, 1>::initialize(cx, sx);
+        Loop<Variable, 2>::initialize(cx, sx);
         for (int i = ci.first(); i <= ci.last(); i++){
-            Variable<0>::cell(i) = (i + 1) * (i + 1);
-            Variable<1>::cell(i) = i + 2;
+            Variable<0>::cell(i) = (i + 1) * (i + 1) - 10.;
+            Variable<1>::cell(i) = (i + 1) * (i + 2);
+            Variable<2>::cell(i)(0) = (i + 1) * (i + 1);
+            Variable<2>::cell(i)(1) = (i + 1) * (i + 2);
         }
-        Loop<Variable, 1>::fixBoundary(ci);
-        Loop<Variable, 1>::wallConstruct(ci);
+        Loop<Variable, 2>::fixBoundary(ci);
+        Loop<Variable, 2>::cell2wall(ci);
+        Loop<Variable, 2>::wall2flux(Variable<0>::wallm, Variable<0>::wallp, si);
     };
     void solve(double tend){
     }
     void observe(){ 
-        std::cout << Variable<0>::cell  << std::endl;
-        std::cout << Variable<0>::wallm << std::endl;
-        std::cout << Variable<0>::wallp << std::endl;
-        std::cout << Variable<1>::cell  << std::endl;
-        std::cout << Variable<1>::wallm << std::endl;
-        std::cout << Variable<1>::wallp << std::endl;
+        Loop<Variable, 2>::observe(ci, si);
     }
 };
 

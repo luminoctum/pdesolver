@@ -3,7 +3,7 @@
 #include "Godunov.h"
 #include "Pooma/Arrays.h"
 
-template<int ORDER, class SYS>
+template<int ORDER>
 class ENOScheme{
 protected:
     static Array<2> enoc;
@@ -50,7 +50,7 @@ protected:
     }
 public:
     ENOScheme(){ setEnoc(); }
-    /* scalr reconstruction */
+    /* scalar reconstruction */
     template<class A, class I> void 
     static construct(A, I ci, Int2Type<0>){
         I si(ci.first(), ci.last() + 1);
@@ -60,14 +60,14 @@ public:
             jmin = i; jmax = i;
             adaptiveStencil(A::cell, jmin, jmax);
             for (int j = 0; j < ORDER; j++){
-                A::wallm(i) += enoc(i - jmin - 1, j) * A::cell(jmin + j);
-                A::wallp(i) += enoc(i - jmin, j) * A::cell(jmin + j);
+                A::wallp(i) += enoc(i - jmin - 1, j) * A::cell(jmin + j);
+                A::wallm(i + 1) += enoc(i - jmin, j) * A::cell(jmin + j);
             }
         }
     }
     /* componentwise reconstruction */
     template<class A, class I> void 
-    static construct(A, const I& ci, Int2Type<1>){
+    static construct(A, I ci, Int2Type<1>){
         I si(ci.first(), ci.last() + 1);
         int jmin, jmax;
         enum {ncomp = A::Element_t::d1};
@@ -77,8 +77,8 @@ public:
                 jmin = i; jmax = i;
                 adaptiveStencil(A::cell.comp(s), jmin, jmax);
                 for (int j = 0; j < ORDER; j++){
-                    A::wallm(i)(s) += enoc(i - jmin - 1, j) * A::cell(jmin + j)(s);
-                    A::wallp(i)(s) += enoc(i - jmin, j) * A::cell(jmin + j)(s);
+                    A::wallp(i)(s) += enoc(i - jmin - 1, j) * A::cell(jmin + j)(s);
+                    A::wallm(i + 1)(s) += enoc(i - jmin, j) * A::cell(jmin + j)(s);
                 }
             }
         }
@@ -94,10 +94,10 @@ public:
         Vector<ncomp> vleft, vright;
         for (int i = ci.first() - 1; i <= ci.last() + 1; i++){
             vleft = 0.; vright = 0.;
-            //FIXME: dFluxdu
             typename A::Array_t va(I(i - ORDER + 1, i + ORDER - 1));
             // want to get the number of components
-            EigenSystem<ncomp>::solve(SYS::dFluxdu(A::cell(i)), lp, ep, rp);
+            // For characteristic reconstruction, A must have dfluxdu method
+            EigenSystem<ncomp>::solve(A::dfluxdu(i), lp, ep, rp);
             for (int j = i - ORDER + 1; j <= i + ORDER - 1; j++){
                 va(j) = dot(transpose(lp), A::cell(j));
             }
@@ -109,14 +109,14 @@ public:
                     vright(s) += enoc(i - jmin, j) * va(jmin + j)(s);
                 }
             }
-            A::wallm(i) = dot(vleft, rp);
-            A::wallp(i) = dot(vright, rp);
+            A::wallp(i) = dot(vleft, rp);
+            A::wallm(i + 1) = dot(vright, rp);
         }
     }
 };
 
 // note: put Array behind ENOScheme
-template<int ORDER, class SYS> Array<2> ENOScheme<ORDER, SYS>::enoc;
+template<int ORDER> Array<2> ENOScheme<ORDER>::enoc;
 
 //Array<2> template<int ORDER, class SYS> ENOScheme<ORDER, SYS>::enoc;
 
