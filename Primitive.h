@@ -173,7 +173,7 @@ struct Variable<8>{
     static std::string name;
     static Array_t cell; 
     typedef Int2Type<0> ptag;
-    typedef Boundary<Reflective, FixedConst<Array<1, Element_t>, 4>, LinearExtrap, ConstExtrap> bd;
+    typedef Boundary<Reflective, FixedConst<Array<1, Element_t>, 8>, LinearExtrap, ConstExtrap> bd;
 };
 std::string Variable<8>::name = "pdry";
 
@@ -259,7 +259,7 @@ public:
     void updateDiagnostics(A& ncvar, Interval<2> cij) {
         wwind.cell(cij) = - binty(cdx(uwind.cell, cij), cij);
         temp.cell(cij).comp(0) = ncvar["t_ov_tc"] * theta.cell(cij);
-        temp.cell(cij).comp(1) = temp.cell(cij).comp(0) *
+        temp.cell.comp(1) = temp.cell.comp(0) *
             (1. + mixr.cell.comp(0) + mixr.cell.comp(1)) 
             / (1. + eps1 * mixr.cell.comp(0) + eps2 * mixr.cell.comp(1)); 
         // it should use the integ stencil but the compiler does not let it go
