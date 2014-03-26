@@ -18,19 +18,21 @@ template<>
 struct Variable<0>{
     typedef double Element_t;
     typedef Array<2, Element_t> Array_t;
+    typedef Array<2, Vector<2, Element_t> > Wall_t;
     Variable(){};
     Variable(Interval<2> cxy, Interval<2> sXy, Interval<2> sxY){
         cell.initialize(cxy);
-        wallXm.initialize(sXy);
-        wallXp.initialize(sXy);
-        wallYm.initialize(sxY);
-        wallYp.initialize(sxY);
+        dcelldt.initialize(cxy);
+        wallX.initialize(sXy);
+        wallY.initialize(sxY);
         fluxX.initialize(sXy);
         fluxY.initialize(sxY);
     }
     static std::string name;
-    static Array_t cell, wallXm, wallXp, wallYm, wallYp, fluxX, fluxY;
+    static Array_t cell, dcelldt, fluxX, fluxY;
+    static Wall_t wallX, wallY;
     typedef Int2Type<0> ctag;
+    typedef Int2Type<1> mtag;
     typedef Int2Type<1> ptag;
     typedef Boundary<Reflective, ConstExtrap, LinearExtrap, ConstExtrap> bd;
 };
@@ -40,19 +42,21 @@ template<>
 struct Variable<1>{
     typedef double Element_t;
     typedef Array<2, Element_t> Array_t;
+    typedef Array<2, Vector<2, Element_t> > Wall_t;
     Variable(){};
     Variable(Interval<2> cxy, Interval<2> sXy, Interval<2> sxY){
         cell.initialize(cxy);
-        wallXm.initialize(sXy);
-        wallXp.initialize(sXy);
-        wallYm.initialize(sxY);
-        wallYp.initialize(sxY);
+        dcelldt.initialize(cxy);
+        wallX.initialize(sXy);
+        wallY.initialize(sxY);
         fluxX.initialize(sXy);
         fluxY.initialize(sxY);
     }
     static std::string name;
-    static Array_t cell, wallXm, wallXp, wallYm, wallYp, fluxX, fluxY;
+    static Array_t cell, dcelldt, fluxX, fluxY;
+    static Wall_t wallX, wallY;
     typedef Int2Type<0> ctag;
+    typedef Int2Type<0> mtag;
     typedef Int2Type<1> ptag;
     typedef Boundary<Reflective, ConstExtrap, LinearExtrap, ConstExtrap> bd;
 };
@@ -62,19 +66,21 @@ template<>
 struct Variable<2>{
     typedef double Element_t;
     typedef Array<2, Element_t> Array_t;
+    typedef Array<2, Vector<2, Element_t> > Wall_t;
     Variable(){};
     Variable(Interval<2> cxy, Interval<2> sXy, Interval<2> sxY){
         cell.initialize(cxy);
-        wallXm.initialize(sXy);
-        wallXp.initialize(sXy);
-        wallYm.initialize(sxY);
-        wallYp.initialize(sxY);
+        dcelldt.initialize(cxy);
+        wallX.initialize(sXy);
+        wallY.initialize(sxY);
         fluxX.initialize(sXy);
         fluxY.initialize(sxY);
     }
     static std::string name;
-    static Array_t cell, wallXm, wallXp, wallYm, wallYp, fluxX, fluxY;
+    static Array_t cell, dcelldt, fluxX, fluxY;
+    static Wall_t wallX, wallY;
     typedef Int2Type<0> ctag;
+    typedef Int2Type<0> mtag;
     typedef Int2Type<1> ptag;
     typedef Boundary<Mirror, FixedConst<Array<1, Element_t>, 2>, ConstExtrap, ConstExtrap> bd;
 };
@@ -84,19 +90,21 @@ template<>
 struct Variable<3>{
     typedef Vector<2> Element_t;
     typedef Array<2, Element_t> Array_t;
+    typedef Array<2, Vector<2, Element_t> > Wall_t;
     Variable(){};
     Variable(Interval<2> cxy, Interval<2> sXy, Interval<2> sxY){
         cell.initialize(cxy);
-        wallXm.initialize(sXy);
-        wallXp.initialize(sXy);
-        wallYm.initialize(sxY);
-        wallYp.initialize(sxY);
+        dcelldt.initialize(cxy);
+        wallX.initialize(sXy);
+        wallY.initialize(sxY);
         fluxX.initialize(sXy);
         fluxY.initialize(sxY);
     }
     static std::string name[2];
-    static Array_t cell, wallXm, wallXp, wallYm, wallYp, fluxX, fluxY;
+    static Array_t cell, dcelldt, fluxX, fluxY;
+    static Wall_t wallX, wallY;
     typedef Int2Type<1> ctag;
+    typedef Int2Type<0> mtag;
     typedef Int2Type<1> ptag;
     typedef Boundary<Mirror, FixedConst<Array<1, Element_t>, 3>, LinearExtrap, ConstExtrap> bd;
 };
@@ -106,16 +114,22 @@ template<>
 struct Variable<4>{
     typedef double Element_t;
     typedef Array<2, Element_t> Array_t;
+    typedef Array<2, Vector<2, Element_t> > Wall_t;
     Variable(){};
     Variable(Interval<2> cxy, Interval<2> sXy, Interval<2> sxY){
         cell.initialize(cxy);
+        wallX.initialize(sXy);
+        wallY.initialize(sxY);
     }
     static std::string name;
-    static Array_t cell; 
+    static Array_t cell;
+    static Wall_t wallX, wallY;
+    typedef Int2Type<0> ctag;
+    typedef Int2Type<1> mtag;
     typedef Int2Type<0> ptag;
-    typedef Boundary<Reflective, FixedConst<Array<1, Element_t>, 4>, LinearExtrap, ConstExtrap> bd;
+    typedef Boundary<Reflective, ConstExtrap, ConstExtrap, FixedConst<Array<1, Element_t>, 5> > bd;
 };
-std::string Variable<4>::name = "phi";
+std::string Variable<4>::name = "wwind";
 
 template<>
 struct Variable<5>{
@@ -126,11 +140,12 @@ struct Variable<5>{
         cell.initialize(cxy);
     }
     static std::string name;
-    static Array_t cell;
+    static Array_t cell; 
     typedef Int2Type<0> ptag;
-    typedef Boundary<Reflective, ConstExtrap, ConstExtrap, FixedConst<Array<1, Element_t>, 5> > bd;
+    typedef Int2Type<0> mtag;
+    typedef Boundary<Reflective, FixedConst<Array<1, Element_t>, 4>, LinearExtrap, ConstExtrap> bd;
 };
-std::string Variable<5>::name = "wwind";
+std::string Variable<5>::name = "phi";
 
 template<>
 struct Variable<6>{
@@ -143,6 +158,7 @@ struct Variable<6>{
     static std::string name[2];
     static Array_t cell;
     typedef Int2Type<0> ptag;
+    typedef Int2Type<0> mtag;
     typedef Boundary<Reflective, FixedConst<Array<1, Element_t>, 6>, LinearExtrap, ConstExtrap> bd;
 };
 std::string Variable<6>::name[2] = {"temp", "tempv"};
@@ -158,6 +174,7 @@ struct Variable<7>{
     static std::string name[6];
     static Array_t cell;
     typedef Int2Type<0> ptag;
+    typedef Int2Type<0> mtag;
     typedef Boundary<Reflective, FixedConst<Array<1, Element_t>, 7>, ConstExtrap, ConstExtrap> bd;
 };
 std::string Variable<7>::name[6] = {"svpH2O", "svpNH3", "hH2O", "hNH3", "qH2O", "qNH3"};
@@ -173,6 +190,7 @@ struct Variable<8>{
     static std::string name;
     static Array_t cell; 
     typedef Int2Type<0> ptag;
+    typedef Int2Type<0> mtag;
     typedef Boundary<Reflective, FixedConst<Array<1, Element_t>, 8>, LinearExtrap, ConstExtrap> bd;
 };
 std::string Variable<8>::name = "pdry";
@@ -180,42 +198,42 @@ std::string Variable<8>::name = "pdry";
 /* explicit definition for static variables */
 // 0 
 Variable<0>::Array_t Variable<0>::cell;
-Variable<0>::Array_t Variable<0>::wallXm;
-Variable<0>::Array_t Variable<0>::wallXp;
-Variable<0>::Array_t Variable<0>::wallYm;
-Variable<0>::Array_t Variable<0>::wallYp;
+Variable<0>::Array_t Variable<0>::dcelldt;
 Variable<0>::Array_t Variable<0>::fluxX;
 Variable<0>::Array_t Variable<0>::fluxY;
+Variable<0>::Wall_t Variable<0>::wallX;
+Variable<0>::Wall_t Variable<0>::wallY;
 
 // 1
 Variable<1>::Array_t Variable<1>::cell;
-Variable<1>::Array_t Variable<1>::wallXm;
-Variable<1>::Array_t Variable<1>::wallXp;
-Variable<1>::Array_t Variable<1>::wallYm;
-Variable<1>::Array_t Variable<1>::wallYp;
+Variable<1>::Array_t Variable<1>::dcelldt;
 Variable<1>::Array_t Variable<1>::fluxX;
 Variable<1>::Array_t Variable<1>::fluxY;
+Variable<1>::Wall_t Variable<1>::wallX;
+Variable<1>::Wall_t Variable<1>::wallY;
 
 // 2 
 Variable<2>::Array_t Variable<2>::cell;
-Variable<2>::Array_t Variable<2>::wallXm;
-Variable<2>::Array_t Variable<2>::wallXp;
-Variable<2>::Array_t Variable<2>::wallYm;
-Variable<2>::Array_t Variable<2>::wallYp;
+Variable<2>::Array_t Variable<2>::dcelldt;
 Variable<2>::Array_t Variable<2>::fluxX;
 Variable<2>::Array_t Variable<2>::fluxY;
+Variable<2>::Wall_t Variable<2>::wallX;
+Variable<2>::Wall_t Variable<2>::wallY;
 
 // 3 
 Variable<3>::Array_t Variable<3>::cell;
-Variable<3>::Array_t Variable<3>::wallXm;
-Variable<3>::Array_t Variable<3>::wallXp;
-Variable<3>::Array_t Variable<3>::wallYm;
-Variable<3>::Array_t Variable<3>::wallYp;
+Variable<3>::Array_t Variable<3>::dcelldt;
 Variable<3>::Array_t Variable<3>::fluxX;
 Variable<3>::Array_t Variable<3>::fluxY;
+Variable<3>::Wall_t Variable<3>::wallX;
+Variable<3>::Wall_t Variable<3>::wallY;
 
-//4,5,6,7,8
+// 4
 Variable<4>::Array_t Variable<4>::cell;
+Variable<4>::Wall_t Variable<4>::wallX;
+Variable<4>::Wall_t Variable<4>::wallY;
+
+//5,6,7,8
 Variable<5>::Array_t Variable<5>::cell;
 Variable<6>::Array_t Variable<6>::cell;
 Variable<7>::Array_t Variable<7>::cell;
@@ -237,8 +255,8 @@ public:
     Variable<1> vwind;
     Variable<2> theta;
     Variable<3> mixr;
-    Variable<4> phi;
-    Variable<5> wwind;
+    Variable<4> wwind;
+    Variable<5> phi;
     Variable<6> temp;
     Variable<7> moist; //0:svpH2O, 1:svpNH3, 2:hH2O, 3:hNH3, 4:qH2O, 5:qNH3
     Variable<8> pdry; 
@@ -274,6 +292,7 @@ public:
         //mixr.cell.comp(0) = max(mixr.cell.comp(0));
         //mixr.cell.comp(1) = max(mixr.cell.comp(1));
 
+        /* diable microphysics
         moist.cell.comp(0) = H2O.svp_from_t(temp.cell.comp(0));
         moist.cell.comp(1) = NH3.svp_from_t(temp.cell.comp(0));
         // should define a binary function min, max, etc...
@@ -292,6 +311,14 @@ public:
         // calculate mixing ratio: x = h * svp / pdry
         for (int s = 0; s < 2; s++)
             mixr.cell(cij).comp(s) = moist.cell(cij).comp(s + 2) * moist.cell(cij).comp(s) / pdry.cell(cij);
+        */
+    }
+    template<class A>
+    void bodyForce(A& ncvar, Interval<2> cij){
+        uwind.dcelldt(cij) += - ncvar["mass"] * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / ncvar["rdist"]));
+        vwind.dcelldt(cij) += - uwind.cell(cij) / ncvar["mass"] * (f + vwind.cell(cij) / ncvar["rdist"]);
+        theta.dcelldt(cij) += theta.cell(cij) / (cp * temp.cell(cij).comp(0)) 
+            * (H2O.Lv * eps1 * moist.cell(cij).comp(4) + NH3.Lv * eps2 * moist.cell(cij).comp(5));
     }
 };
 
