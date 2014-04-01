@@ -4,7 +4,6 @@
 #include "Stencil.h"
 #include "Boundary.h"
 
-
 template<int DIM, class ET, template<int,class> class OPT>
 class PDESolver : 
     public OPT<DIM, ET>::Equation, 

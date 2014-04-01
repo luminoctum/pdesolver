@@ -8,8 +8,8 @@ class NcFileIO{
     typedef double Element_t;
     typedef Array<2, double> Array_t;
 protected:
-    std::string filename;
-    std::map<std::string, Array_t> ncvar;
+    char *filename;
+    std::map<char*, Array_t> ncvar;
     Array_t buffer_in;
     long current;
     int nx, ny, gl;
@@ -19,8 +19,7 @@ protected:
     int frame;
 public:
     NcFileIO(){}
-    NcFileIO(std::string _fname){
-        filename = _fname;
+    NcFileIO(char *_fname) : filename(_fname) {
         ncread(_fname);
     }
     friend std::ostream& operator<< (std::ostream &os, const NcFileIO &other){
@@ -37,8 +36,8 @@ public:
             << "Times per frame: " << other.frame << std::endl;
         return os;
     }
-    void ncread(std::string _fname){
-        NcFile dataFile(_fname.c_str(), NcFile::ReadOnly);
+    void ncread(char *_fname){
+        NcFile dataFile(_fname, NcFile::ReadOnly);
         current = dataFile.get_dim("time")->size() - 1;
         if (!dataFile.is_valid()){ ASSERT_FILE_NOT_FOUND(_fname); }
         Array_t buffer_in;
@@ -75,17 +74,6 @@ public:
         dx      = xlen / (nx - 1);
         dy      = ylen / (ny - 1);
     }
-    /*
-    template<class A, class B>
-    void ncwrite(const A& var, const B& vattr, double time){
-        current++;
-        NcFile dataFile(filename.c_str(), NcFile::Write);
-        for (size_t i = 0; i < var.size(); i++){
-            buffer_out = var[i](cij);
-            dataFile.get_var(vattr[i].name.c_str())->put_rec(&buffer_out(0, 0), current);
-        }
-        dataFile.get_var("time")->put_rec(&time, current);
-    }*/
 };
 
 #endif

@@ -35,7 +35,7 @@ public:
         for (int i = 0; i < _maxorder_; i++) for (int j = 0; j < _maxorder_; j++)
             polyc(i, j) = mpoly[i][j];
     }
-public:
+
     EnoScheme(){}
     inline int lowerExtent(int) const {return O - 1;}
     inline int upperExtent(int) const {return O - 1;}
@@ -66,7 +66,7 @@ public:
 
     /* component-wise reconstruction */
     template<int S, class E, class G> Vector<2, Vector<S, E> >
-    operator()(const Array<1, Vector<S, E>, G>& ua, int i) const {
+    inline operator()(const Array<1, Vector<S, E>, G>& ua, int i) const {
         // relies on actual domain starts from zero
         Vector<2, E> element;
         Vector<2, Vector<S, E> > result;
@@ -95,11 +95,13 @@ class EnoSchemeX : public EnoScheme<O>{
 public:
     inline int lowerExtent(int d) const {return O - 1 + (1 - O) * d;}
     inline int upperExtent(int d) const {return O - 1 + (1 - O) * d;}
+    // overload parent function
+    using EnoScheme<O>::operator();
     template<class A> Vector<2, typename A::Element_t>
-    operator()(const A& ua, int i, int j) const {
+    inline operator()(const A& ua, int i, int j) const {
         // relies on actual domain starts from zero
         Interval<1> cx(ua.domain()[0]);
-        return EnoScheme<O>::operator()(ua(cx, j), i);
+        return operator()(ua(cx, j), i);
     }
 };
 
@@ -108,14 +110,31 @@ class EnoSchemeY : public EnoScheme<O>{
 public:
     inline int lowerExtent(int d) const {return (O - 1) * d;}
     inline int upperExtent(int d) const {return (O - 1) * d;}
+    // overload parent function
+    using EnoScheme<O>::operator();
     template<class A> Vector<2, typename A::Element_t>
-    operator()(const A& ua, int i, int j) const {
+    inline operator()(const A& ua, int i, int j) const {
         // relies on actual domain starts from zero
         Interval<1> cy(ua.domain()[1]);
-        return EnoScheme<O>::operator()(ua(i, cy), j);
+        return operator()(ua(i, cy), j);
     }
 };
 #undef _maxorder_
 
+/* Partial specialize Return of Functor */
+template<int O, class T>
+struct FunctorResult<EnoScheme<O>, T>{
+    typedef Vector<2, T> Type_t;
+};
+
+template<int O, class T>
+struct FunctorResult<EnoSchemeX<O>, T>{
+    typedef Vector<2, T> Type_t;
+};
+
+template<int O, class T>
+struct FunctorResult<EnoSchemeY<O>, T>{
+    typedef Vector<2, T> Type_t;
+};
 
 #endif
