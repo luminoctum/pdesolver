@@ -2,7 +2,7 @@
 #define BOUNDARY
 #include "Pooma/Arrays.h"
 struct Periodic{
-    template<class A> static void fix(A& a, const Interval<1>& ci){
+    template<class A> void fix(A& a, const Interval<1>& ci){
         Interval<1> cx = a.domain();
         Interval<1> lower(ci.first(), cx.last() - ci.length());
         Interval<1> upper(ci.length() + cx.first(), ci.last());
@@ -11,46 +11,61 @@ struct Periodic{
         a(lowerfix) = a(upper);
         a(upperfix) = a(lower);
     }
+    template<class A> void fix(A a, const Interval<2>& cij){
+        Interval<2> cxy = a.domain();
+        Interval<1> cj = cij[1];
+        Interval<1> cx = cxy[0];
+        int xfirst = cxy[0].first(), xlast = cxy[0].last();
+        int yfirst = cxy[1].first(), ylast = cxy[1].last();
+        int ifirst = cij[0].first(), ilast = cij[0].last();
+        int jfirst = cij[1].first(), jlast = cij[1].last();
+        for (int i = xfirst; i < ifirst; i++) a(i, cj) = a(i + ilast - ifirst + 1, cj);
+        for (int i = xlast; i > ilast; i--) a(i, cj) = a(i - ilast + ifirst - 1, cj);
+        for (int j = yfirst; j < jfirst; j++) a(cx, j) = a(cx, j + jlast - jfirst + 1);
+        for (int j = ylast; j > jlast; j--) a(cx, j) = a(cx, j - jlast + jfirst - 1);
+    }
+    friend std::ostream& operator<< (std::ostream &os, const Periodic &other){
+        os << "Periodic"; return os;
+    }
 };
+
 struct LinearExtrap{
-    template<class A> static void fix(A& a, const Interval<1>& ci){
+    template<class A> void fix(A& a, const Interval<1>& ci){
         Interval<1> cx = a.domain();
         int ifirst = ci.first(), ilast = ci.last();
         int xfirst = cx.first(), xlast = cx.last();
         for (int i = ifirst - 1; i >= xfirst; i--) a(i) = a(i + 1) - a(ifirst + 1) + a(ifirst);
         for (int i = ilast + 1; i <= xlast; i++) a(i) = a(i - 1) + a(ilast) - a(ilast - 1);
     }
-    template<class A> static void fix(A& a, const Interval<1>& cix, const Interval<1>& ciy){
-        Interval<1> cxx = a.domain()[0];
-        Interval<1> cxy = a.domain()[1];
-        int ifirst = cix.first(), ilast = cix.last();
-        int xfirst = cxx.first(), xlast = cxx.last();
-        int jfirst = ciy.first(), jlast = ciy.last();
-        int yfirst = cxy.first(), ylast = cxy.last();
+    template<class A> void fix(A& a, const Interval<2>& cij){
+        Interval<2> cxy = a.domain();
+        int xfirst = cxy[0].first(), xlast = cxy[0].last();
+        int yfirst = cxy[1].first(), ylast = cxy[1].last();
+        int ifirst = cij[0].first(), ilast = cij[0].last();
+        int jfirst = cij[1].first(), jlast = cij[1].last();
         for (int i = ifirst - 1; i >= xfirst; i--) 
-            a(i, ciy) = a(i + 1, ciy) - a(ifirst + 1, ciy) + a(ifirst, ciy);
+            a(i, cij[1]) = a(i + 1, cij[1]) - a(ifirst + 1, cij[1]) + a(ifirst, cij[1]);
         for (int i = ilast + 1; i <= xlast; i++)
-            a(i, ciy) = a(i - 1, ciy) + a(ilast, ciy) - a(ilast - 1, ciy);
+            a(i, cij[1]) = a(i - 1, cij[1]) + a(ilast, cij[1]) - a(ilast - 1, cij[1]);
         for (int j = jfirst - 1; j >= yfirst; j--) 
-            a(cxx, j) = a(cxx, j + 1) - a(cxx, jfirst + 1) + a(cxx, jfirst);
+            a(cxy[0], j) = a(cxy[0], j + 1) - a(cxy[0], jfirst + 1) + a(cxy[0], jfirst);
         for (int j = jlast + 1; j <= ylast; j++)
-            a(cxx, j) = a(cxx, j - 1) + a(cxx, jlast) - a(cxx, jlast - 1);
+            a(cxy[0], j) = a(cxy[0], j - 1) + a(cxy[0], jlast) - a(cxy[0], jlast - 1);
     }
-    template<class A> static void fix(A& a, const Interval<2>& cij){
-        Interval<1> cix = cij[0];
-        Interval<1> ciy = cij[1];
-        fix(a, cix, ciy);
+    friend std::ostream& operator<< (std::ostream &os, const LinearExtrap &other){
+        os << "LinearExtrap"; return os;
     }
 };
+
 struct ConstExtrap{
-    template<class A> static void fix(A& a, const Interval<1>& ci){
+    template<class A> void fix(A& a, const Interval<1>& ci){
         Interval<1> cx = a.domain();
         int ifirst = ci.first(), ilast = ci.last();
         int xfirst = cx.first(), xlast = cx.last();
         for (int i = ifirst - 1; i >= xfirst; i--) a(i) = a(ifirst);
         for (int i = ilast + 1; i <= xlast; i++) a(i) = a(ilast);
     }
-    template<class A> static void fix(A& a, const Interval<2>& cij){
+    template<class A> void fix(A& a, const Interval<2>& cij){
         Interval<2> cxy = a.domain();
         int xfirst = cxy[0].first(), xlast = cxy[0].last();
         int yfirst = cxy[1].first(), ylast = cxy[1].last();
@@ -63,14 +78,21 @@ struct ConstExtrap{
         for (int j = yfirst; j < jfirst; j++) a(cx, j) = a(cx, jfirst);
         for (int j = ylast; j > jlast; j--) a(cx, j) = a(cx, jlast);
     }
+    friend std::ostream& operator<< (std::ostream &os, const ConstExtrap &other){
+        os << "ConstExtrap"; return os;
+    }
 };
-template<class ET, int ID = 0>
+
+template<class T = double>
 struct FixedConst{
-    enum {id = ID};
-    static bool unset;
-    static ET lower, upper;
-    static ET left, right, bottom, top;
-    template<class A> static void fix(A& a, const Interval<1>& ci) {
+    typedef T Element_t;
+    bool unset;
+    Element_t lower, upper;
+    Array<1, Element_t> left, right, bottom, top;
+    FixedConst(){
+        unset = true;
+    }
+    template<class A> void fix(A& a, const Interval<1>& ci) {
         Interval<1> cx = a.domain();
         int ifirst = ci.first(), ilast = ci.last();
         int xfirst = cx.first(), xlast = cx.last();
@@ -82,7 +104,7 @@ struct FixedConst{
         for (int i = ifirst; i >= xfirst; i--) a(i) = lower;
         for (int i = ilast; i <= xlast; i++) a(i) = upper;
     }
-    template<class A> static void fix(A& a, const Interval<2>& cij){
+    template<class A> void fix(A& a, const Interval<2>& cij){
         Interval<2> cxy = a.domain();
         int xfirst = cxy[0].first(), xlast = cxy[0].last();
         int yfirst = cxy[1].first(), ylast = cxy[1].last();
@@ -111,24 +133,13 @@ struct FixedConst{
             for (int j = ylast; j >= jlast; j--) a(cx, j) = top;
         }
     }
+    friend std::ostream& operator<< (std::ostream &os, const FixedConst<T> &other){
+        os << "FixedConst"; return os;
+    }
 };
-template<class ET, int ID>
-bool FixedConst<ET, ID>::unset = true;
-template<class ET, int ID>
-ET FixedConst<ET, ID>::lower;
-template<class ET, int ID>
-ET FixedConst<ET, ID>::upper;
-template<class ET, int ID>
-ET FixedConst<ET, ID>::left;
-template<class ET, int ID>
-ET FixedConst<ET, ID>::right;
-template<class ET, int ID>
-ET FixedConst<ET, ID>::bottom;
-template<class ET, int ID>
-ET FixedConst<ET, ID>::top;
 
 struct Reflective{
-    template<class A> static void fix(A&a, const Interval<2>& cij){
+    template<class A> void fix(A&a, const Interval<2>& cij){
         Interval<2> cxy = a.domain();
         int xfirst = cxy[0].first(), xlast = cxy[0].last();
         int yfirst = cxy[1].first(), ylast = cxy[1].last();
@@ -141,9 +152,13 @@ struct Reflective{
         for (int j = yfirst; j < jfirst; j++) a(cx, j) = - a(cx, 2 * jfirst - j - 1);
         for (int j = ylast; j > jlast; j--) a(cx, j) = - a(cx, 2 * jlast - j + 1);
     }
+    friend std::ostream& operator<< (std::ostream &os, const Reflective &other){
+        os << "Reflective"; return os;
+    }
 };
+
 struct Mirror{
-    template<class A> static void fix(A&a, const Interval<2>& cij){
+    template<class A> void fix(A&a, const Interval<2>& cij){
         Interval<2> cxy = a.domain();
         int xfirst = cxy[0].first(), xlast = cxy[0].last();
         int yfirst = cxy[1].first(), ylast = cxy[1].last();
@@ -156,27 +171,41 @@ struct Mirror{
         for (int j = yfirst; j < jfirst; j++) a(cx, j) = a(cx, 2 * jfirst - j - 1);
         for (int j = ylast; j > jlast; j--) a(cx, j) = a(cx, 2 * jlast - j + 1);
     }
+    friend std::ostream& operator<< (std::ostream &os, const Mirror &other){
+        os << "Mirror"; return os;
+    }
 };
 
 struct NONE{
-    template<class A> static void fix(A&a, const Interval<1>& ci){}
-    template<class A> static void fix(A&a, const Interval<2>& cij){}
+    template<class A> void fix(A&a, const Interval<1>& ci){}
+    template<class A> void fix(A&a, const Interval<2>& cij){}
+    friend std::ostream& operator<< (std::ostream &os, const NONE &other){
+        os << "Undefined"; return os;
+    }
 };
 
 template<class L = NONE, class B = NONE, class R = L, class T = B>
 class Boundary{
 public:
-    template<class A> static void fix(A& a, const Interval<2>& cij){
+    L left; B bottom; R right; T top;
+    template<class A> void fix(A& a, const Interval<2>& cij){
         // corner might got messed up
         Interval<2> cxy = a.domain();
         int ifirst = cij[0].first(), ilast = cij[0].last();
         int jfirst = cij[1].first(), jlast = cij[1].last();
         int xfirst = cxy[0].first(), xlast = cxy[0].last();
         int yfirst = cxy[1].first(), ylast = cxy[1].last();
-        L::fix(a, Interval<2>(Interval<1>(ifirst, xlast), Interval<1>(yfirst, ylast)));
-        R::fix(a, Interval<2>(Interval<1>(xfirst, ilast), Interval<1>(yfirst, ylast)));
-        B::fix(a, Interval<2>(Interval<1>(xfirst, xlast), Interval<1>(jfirst, ylast)));
-        T::fix(a, Interval<2>(Interval<1>(xfirst, xlast), Interval<1>(yfirst, jlast)));
+        left.fix(a, Interval<2>(Interval<1>(ifirst, xlast), Interval<1>(yfirst, ylast)));
+        right.fix(a, Interval<2>(Interval<1>(xfirst, ilast), Interval<1>(yfirst, ylast)));
+        bottom.fix(a, Interval<2>(Interval<1>(xfirst, xlast), Interval<1>(jfirst, ylast)));
+        top.fix(a, Interval<2>(Interval<1>(xfirst, xlast), Interval<1>(yfirst, jlast)));
+    }
+    friend std::ostream& operator<< (std::ostream &os, const Boundary<L,B,R,T> &other){
+        os  << "-Left- " << other.left << ", "
+            << "-Bottom- " << other.bottom << ", "
+            << "-Right- " << other.right << ", "
+            << "-Top- " << other.top; 
+        return os;
     }
 };
 #endif
