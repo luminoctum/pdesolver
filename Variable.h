@@ -6,14 +6,16 @@
 
 class VariableBase{
 public:
-    VariableBase(){ cij = setups::cij; }
+    VariableBase(){ cij = setups::cij; cell.initialize(cij); }
     virtual ~VariableBase(){}
     virtual void printInfo(int level = 0) = 0;
     virtual void fixBoundary() = 0;
+    virtual const char* getName(int s = 0) = 0;
+    //virtual Array<2, T> getData(int s = 0) = 0;
     Interval<2> cxy, cij;
     std::string vtype;
-    //Array<2> cell, cell_t;
-    //Array<2, Vector<2> > wallx, wally;
+    int size;
+    Array<2> cell;
 };
 
 template<int N, class T, class B = Periodic>
@@ -23,9 +25,8 @@ class Variable : public VariableBase, public B
     typedef B Boundary_t;
 public:
     Variable(){}
-    Variable(char* _name){
-        name = _name;
-        vtype = "scalar";
+    Variable(char* _name) : name(_name) {
+        vtype = "scalar"; size = 1;
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
         cxy = Interval<2>(cx, cy);
@@ -60,6 +61,7 @@ public:
         std::cout << std::endl;
     }
     void fixBoundary(){ fix(cell, cij); }
+    const char* getName(int s = 0) { return name.c_str(); }
     std::string name;
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
@@ -74,7 +76,7 @@ class Variable<N, Vector<S, T>, B> : public VariableBase, public B
 public:
     Variable(){for (int i = 0; i < S; i++) name[i] = new char[1];}
     Variable(char* _name[]){
-        vtype = "vector";
+        vtype = "vector"; size = S;
         for (int i = 0; i < S; i++){ name[i] = std::string(_name[i]); };
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
@@ -118,12 +120,12 @@ public:
         std::cout << std::endl;
     }
     void fixBoundary(){ fix(cell, cij); }
+    const char* getName(int s = 0) { return name[s].c_str(); }
     std::string name[S];
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
 };
 
-/*
 class VariableList{
 public:
     Array<2, double> buffer;
@@ -145,34 +147,43 @@ public:
         for (int i = 0; i < mvar.size(); i++) mvar[i]->fixBoundary();
         for (int i = 0; i < uvar.size(); i++) uvar[i]->fixBoundary();
     }
-    void ncwrite(){
+    void ncwrite(double time){
         setups::current++;
         NcFile dataFile(setups::ncfile.c_str(), NcFile::Write);
+        std::cout << "0" << std::endl;
         for (int i = 0; i < mvar.size(); i++){
-            if (mvar[i]->type == "scalar"){
+            std::cout << "1" << std::endl;
+            if (mvar[i]->vtype == "scalar"){
+                std::cout << mvar[i]->getName() << std::endl;
+                std::cout << mvar[i]->cell(cij) << std::endl;
+                std::cout << mass->cell(cij) << std::endl;
                 buffer = mvar[i]->cell(cij) / mass->cell(cij);
-                dataFile.get_var(mvar[i]->name.c_str())->put_rec(&buffer(0, 0), setups::current);
-            } else if (mvar[i]->type == "vector"){
+                std::cout << "3" << std::endl;
+                dataFile.get_var(mvar[i]->getName())->put_rec(&buffer(0, 0), setups::current);
+                std::cout << "4" << std::endl;
+            } else if (mvar[i]->vtype == "vector"){
+                std::cout << "1" << std::endl;
                 for (int s = 0; s < mvar[i]->size; s++){
                     buffer = mvar[i]->cell(cij).comp(s) / mass->cell(cij);
-                    dataFile.get_var(mvar[i]->name[s].c_str())->put_rec(&buffer(0, 0), setups::current);
+                    dataFile.get_var(mvar[i]->getName(s))->put_rec(&buffer(0, 0), setups::current);
                 }
             }
         }
+        std::cout << "2" << std::endl;
         for (int i = 0; i < uvar.size(); i++){
-            if (uvar[i]->type == "scalar"){
+            if (uvar[i]->vtype == "scalar"){
                 buffer = uvar[i]->cell(cij);
-                dataFile.get_var(uvar[i]->name.c_str())->put_rec(&buffer(0, 0), setups::current);
-            } else if (uvar[i]->type == "vector"){
+                dataFile.get_var(uvar[i]->getName())->put_rec(&buffer(0, 0), setups::current);
+            } else if (uvar[i]->vtype == "vector"){
                 for (int s = 0; s < uvar[i]->size; s++){
                     buffer = uvar[i]->cell(cij).comp(s);
-                    dataFile.get_var(uvar[i]->name[s].c_str())->put_rec(&buffer(0, 0), setups::current);
+                    dataFile.get_var(uvar[i]->getName(s))->put_rec(&buffer(0, 0), setups::current);
                 }
             }
         }
-        dataFile.get_var("time")->put_rec(&time, setups::current)
+        std::cout << "3" << std::endl;
+        dataFile.get_var("time")->put_rec(&time, setups::current);
     }
 };
-*/
 
 #endif

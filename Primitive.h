@@ -17,7 +17,7 @@ protected:
     BackwardIntegralY binty;
     double grav, T0, cp, f; Vector<2> eps;
     //std::vector<VariableBase*> var;
-    //VariableList vlist;
+    VariableList vlist;
     Array<2, T> rdist, t_ov_tc, tv0, ptol;
     Interval<2> cij;
     Water H2O; Ammonia NH3;
@@ -70,7 +70,7 @@ public:
         tv0.initialize(cij); tv0 = setups::ncvar["tv0"];
         ptol.initialize(cij); ptol = setups::ncvar["ptol"];
 
-        /*vlist.mass = &mass;
+        vlist.mass = &mass;
         vlist.mvar = {
             &uwind, &wwind
         };
@@ -80,7 +80,10 @@ public:
         vlist.pvar = {
             &uwind, &vwind, &theta, &mixr
         };
-        vlist.printInfo()*/
+        vlist.fixBoundary();
+        vlist.printInfo(1);
+        std::cout << vlist.mass->cell(cij) << std::endl;
+        //vlist.ncwrite(1.);
     };
     void updateDiagnostics(){
         wwind.cell(cij) = - binty(cdx(uwind.cell, cij), cij);
