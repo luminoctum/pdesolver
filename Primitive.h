@@ -54,7 +54,7 @@ public:
         H2O(1.3E-2), NH3(4E-4), species(H2O, NH3)
     {
         // put scalar here, but should be determined from attributes in ncfile
-        eps = species.mu / 2.2E-3;
+        eps = species.mu / 2.198E-3;
         grav = 10.44;
         T0 = 134.8;
         cp = 11455.;
@@ -80,14 +80,13 @@ public:
             &uwind, &vwind, &theta, &mixr
         };
         vlist.fixBoundary();
-        vlist.printInfo(1);
-        //std::cout << vlist.mass->getData() << std::endl;
-        vlist.ncwrite(1.);
+        //vlist.printInfo(1);
     };
     void updateDiagnostics(){
         wwind.cell(cij) = - binty(cdx(uwind.cell, cij), cij);
         temp.cell(cij) = t_ov_tc * theta.cell(cij);
-        tempv.cell = temp.cell * (1. + esum(mixr.cell))/(1. + esum(eps * mixr.cell));
+        // stencil output is zero based, need to specify cij explicitly
+        tempv.cell(cij) = temp.cell(cij) * (1. + esum(mixr.cell, cij))/(1. + esum(eps * mixr.cell, cij));
         phi.cell(cij) = finty(grav / T0 * (tempv.cell(cij) - tv0), cij);
     }
     void updateBodyforce(){
@@ -96,27 +95,26 @@ public:
         theta.cell_t(cij) += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij));
     }
     void updateMicrophysics(){
-        // calculate saturation vapor pressure
-        // should define a virtual function that takes care of svp_from_t 
         // test condensing
         //mixr.cell.comp(0) = max(mixr.cell.comp(0));
         //mixr.cell.comp(1) = max(mixr.cell.comp(1));
 
-        svp.cell = species.svp_from_t(temp.cell);
+        // saturation vapor pressure
+        svp.cell.comp(0) = H2O.svp_from_t(temp.cell);
+        svp.cell.comp(1) = NH3.svp_from_t(temp.cell);
         // relative humidity: h = x * pdry / svp
         rh.cell = mixr.cell * pdry.cell / svp.cell;
+        // condensing liquid
         for (int s = 0; s < 2; s++){
-            for (int i = cij[0].first(); i <= cij[0].last(); i++)
-                for (int j = cij[1].first(); j <= cij[1].last(); j++)
-                    if (rh.cell(i, j)(s) > 1.2){
-                        // calculate condenstates: q = (h - 1.) * svp / pdry
-                        liq.cell(i, j)(s) = (rh.cell(i, j)(s) - 1.) * svp.cell(i, j)(s) / pdry.cell(i, j);
-                        rh.cell(i, j)(s) = 1.;
-                    }
+            liq.cell.comp(s) = where(rh.cell.comp(s) > 1.2, (rh.cell.comp(s) - 1.) * svp.cell.comp(s) / pdry.cell, 0.);
+            rh.cell.comp(s) = where(liq.cell.comp(s) > 0., 1., rh.cell.comp(s));
         }
         pdry.cell(cij) = ptol / (1. + esum(mixr.cell, cij));
         // mixing ratio: x = h * svp / pdry
         mixr.cell(cij) = rh.cell(cij) * svp.cell(cij) / pdry.cell(cij);
+    }
+    void observe(double time){
+        vlist.ncwrite(time);
     }
 };
 
