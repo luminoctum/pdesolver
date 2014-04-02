@@ -139,7 +139,7 @@ struct FixedConst{
 };
 
 struct Reflective{
-    template<class A> void fix(A&a, const Interval<2>& cij){
+    template<class A> void fix(A& a, const Interval<2>& cij){
         Interval<2> cxy = a.domain();
         int xfirst = cxy[0].first(), xlast = cxy[0].last();
         int yfirst = cxy[1].first(), ylast = cxy[1].last();
@@ -158,7 +158,7 @@ struct Reflective{
 };
 
 struct Mirror{
-    template<class A> void fix(A&a, const Interval<2>& cij){
+    template<class A> void fix(A& a, const Interval<2>& cij){
         Interval<2> cxy = a.domain();
         int xfirst = cxy[0].first(), xlast = cxy[0].last();
         int yfirst = cxy[1].first(), ylast = cxy[1].last();
@@ -177,8 +177,8 @@ struct Mirror{
 };
 
 struct NONE{
-    template<class A> void fix(A&a, const Interval<1>& ci){}
-    template<class A> void fix(A&a, const Interval<2>& cij){}
+    template<class A> void fix(A& a, const Interval<1>& ci){}
+    template<class A> void fix(A& a, const Interval<2>& cij){}
     friend std::ostream& operator<< (std::ostream &os, const NONE &other){
         os << "Undefined"; return os;
     }

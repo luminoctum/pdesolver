@@ -11,6 +11,9 @@ public:
     virtual void printInfo(int level = 0) = 0;
     virtual void fixBoundary() = 0;
     Interval<2> cxy, cij;
+    std::string vtype;
+    //Array<2> cell, cell_t;
+    //Array<2, Vector<2> > wallx, wally;
 };
 
 template<int N, class T, class B = Periodic>
@@ -20,7 +23,9 @@ class Variable : public VariableBase, public B
     typedef B Boundary_t;
 public:
     Variable(){}
-    Variable(char* _name) : name(_name){
+    Variable(char* _name){
+        name = _name;
+        vtype = "scalar";
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
         cxy = Interval<2>(cx, cy);
@@ -55,7 +60,6 @@ public:
         std::cout << std::endl;
     }
     void fixBoundary(){ fix(cell, cij); }
-    //char *name;
     std::string name;
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
@@ -70,6 +74,7 @@ class Variable<N, Vector<S, T>, B> : public VariableBase, public B
 public:
     Variable(){for (int i = 0; i < S; i++) name[i] = new char[1];}
     Variable(char* _name[]){
+        vtype = "vector";
         for (int i = 0; i < S; i++){ name[i] = std::string(_name[i]); };
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
@@ -113,10 +118,61 @@ public:
         std::cout << std::endl;
     }
     void fixBoundary(){ fix(cell, cij); }
-    //char *name[S];
     std::string name[S];
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
 };
+
+/*
+class VariableList{
+public:
+    Array<2, double> buffer;
+    Interval<2> cij;
+    VariableBase* mass;
+    std::vector<VariableBase*> mvar, uvar, pvar;
+    VariableList(){ 
+        cij = setups::cij;
+        buffer.initialize(cij); 
+    }
+    void printInfo(int level = 0){
+        std::cout << "****  mass coupled variable  ****" << std::endl;
+        for (int i = 0; i < mvar.size(); i++) mvar[i]->printInfo(level);
+        std::cout << "**** mass uncoupled variable ****" << std::endl;
+        for (int i = 0; i < uvar.size(); i++) uvar[i]->printInfo(level);
+        std::cout << "*********************************" << std::endl;
+    }
+    void fixBoundary(){
+        for (int i = 0; i < mvar.size(); i++) mvar[i]->fixBoundary();
+        for (int i = 0; i < uvar.size(); i++) uvar[i]->fixBoundary();
+    }
+    void ncwrite(){
+        setups::current++;
+        NcFile dataFile(setups::ncfile.c_str(), NcFile::Write);
+        for (int i = 0; i < mvar.size(); i++){
+            if (mvar[i]->type == "scalar"){
+                buffer = mvar[i]->cell(cij) / mass->cell(cij);
+                dataFile.get_var(mvar[i]->name.c_str())->put_rec(&buffer(0, 0), setups::current);
+            } else if (mvar[i]->type == "vector"){
+                for (int s = 0; s < mvar[i]->size; s++){
+                    buffer = mvar[i]->cell(cij).comp(s) / mass->cell(cij);
+                    dataFile.get_var(mvar[i]->name[s].c_str())->put_rec(&buffer(0, 0), setups::current);
+                }
+            }
+        }
+        for (int i = 0; i < uvar.size(); i++){
+            if (uvar[i]->type == "scalar"){
+                buffer = uvar[i]->cell(cij);
+                dataFile.get_var(uvar[i]->name.c_str())->put_rec(&buffer(0, 0), setups::current);
+            } else if (uvar[i]->type == "vector"){
+                for (int s = 0; s < uvar[i]->size; s++){
+                    buffer = uvar[i]->cell(cij).comp(s);
+                    dataFile.get_var(uvar[i]->name[s].c_str())->put_rec(&buffer(0, 0), setups::current);
+                }
+            }
+        }
+        dataFile.get_var("time")->put_rec(&time, setups::current)
+    }
+};
+*/
 
 #endif

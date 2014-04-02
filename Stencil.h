@@ -134,7 +134,7 @@ struct Curvature{
     static double dx, dy;
     Curvature(){};
     template<class A> inline typename A::Element_t
-    operator()(const A&a, int i, int j) const{
+    operator()(const A& a, int i, int j) const{
         typename A::Element_t ax, ay, axx, axy, ayy;
         ax = (a.read(i + 1, j) - a.read(i - 1, j)) / (2. * dx);
         ay = (a.read(i, j + 1) - a.read(i, j - 1)) / (2. * dy);
@@ -148,4 +148,19 @@ struct Curvature{
 };
 double Curvature::dx = 1.;
 double Curvature::dy = 1.;
+
+struct ElementSum{
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i) const{return sum(a.read(i));}
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i, int j) const{return sum(a.read(i, j));}
+    inline int lowerExtent(int) const {return 0;}
+    inline int upperExtent(int) const {return 0;}
+};
+
+/* Partial specialize Return of Functor */
+template<class T>
+struct FunctorResult<ElementSum, T>{
+    typedef typename T::Element_t Type_t;
+};
 #endif
