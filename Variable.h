@@ -28,8 +28,7 @@ public:
     Variable(){}
     Variable(char* _name) : name(_name) {
         cij = setups::cij;
-        sij[0] = Interval<1>(cij[0].first() - 1, cij[0].last() + 1);
-        sij[1] = Interval<1>(cij[1].first() - 1, cij[1].last() + 1);
+        sij = setups::sij;
 
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
@@ -70,7 +69,7 @@ public:
 
     void fixBoundary(){ fix(cell, cij); }
 
-    void updateTendency(){ cell(cij) += cell_t; cell_t = 0; };
+    void updateTendency(){ cell(cij) += cell_t * setups::dt; cell_t = 0; };
 
     const char* getName(int) { return name.c_str(); }
 
@@ -102,8 +101,7 @@ public:
     Variable(char* _name[]){
         for (int i = 0; i < S; i++){ name[i] = std::string(_name[i]); };
         cij = setups::cij;
-        sij[0] = Interval<1>(cij[0].first() - 1, cij[0].last() + 1);
-        sij[1] = Interval<1>(cij[1].first() - 1, cij[1].last() + 1);
+        sij = setups::sij;
 
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
@@ -111,6 +109,7 @@ public:
 
         cell.initialize(cxy); cell = 0;
         cell_t.initialize(cij); cell_t = 0;
+        // this has to be cxy because eno(cell, wallx)
         wallx.initialize(cxy); wallx = 0;
         wally.initialize(cxy); wally = 0;
 
@@ -155,7 +154,7 @@ public:
 
     void fixBoundary(){ fix(cell, cij); }
 
-    void updateTendency(){ cell(cij) += cell_t; cell_t = 0;};
+    void updateTendency(){ cell(cij) += cell_t * setups::dt; cell_t = 0;};
 
     const char* getName(int s) { return name[s].c_str(); }
 
@@ -224,3 +223,4 @@ public:
 };
 
 #endif
+

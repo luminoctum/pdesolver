@@ -151,16 +151,50 @@ double Curvature::dy = 1.;
 
 struct ElementSum{
     template<class A> inline typename A::Element_t::Element_t
-    operator()(const A& a, int i) const{return sum(a.read(i));}
+    operator()(const A& a, int i) const {return sum(a.read(i));}
     template<class A> inline typename A::Element_t::Element_t
-    operator()(const A& a, int i, int j) const{return sum(a.read(i, j));}
+    operator()(const A& a, int i, int j) const {return sum(a.read(i, j));}
     inline int lowerExtent(int) const {return 0;}
     inline int upperExtent(int) const {return 0;}
+};
+
+template<class T>
+struct GodunovX{
+    Array<2, Vector<2, T> > *xwind;
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i, int j) const {
+        if (xwind->read(i - 1, j)(1) + xwind->read(i, j)(0) > 0) return a.read(i - 1, j)(1) * xwind->read(i - 1, j)(1);
+        else return a.read(i, j)(0) * xwind->read(i, j)(0); 
+    }
+    inline int lowerExtent(int d) const {return 1 - d;}
+    inline int upperExtent(int d) const {return 0;}
+};
+
+template<class T>
+struct GodunovY{
+    Array<2, Vector<2, T> > *ywind;
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i, int j) const {
+        if (ywind->read(i, j - 1)(1) + ywind->read(i, j)(0) > 0) return a(i, j - 1)(1) * ywind->read(i, j - 1)(1);
+        else return a.read(i, j)(0) * ywind->read(i, j)(0); 
+    }
+    inline int lowerExtent(int d) const {return d;}
+    inline int upperExtent(int d) const {return 0;}
 };
 
 /* Partial specialize Return of Functor */
 template<class T>
 struct FunctorResult<ElementSum, T>{
+    typedef typename T::Element_t Type_t;
+};
+
+template<class E, class T>
+struct FunctorResult<GodunovX<E>, T>{
+    typedef typename T::Element_t Type_t;
+};
+
+template<class E, class T>
+struct FunctorResult<GodunovY<E>, T>{
     typedef typename T::Element_t Type_t;
 };
 #endif

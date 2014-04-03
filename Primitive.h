@@ -13,12 +13,16 @@ class Primitive{
 protected:
     Stencil<ElementSum> esum;
     Stencil<CenterDifferenceX> cdx;
+    Stencil<ForwardDifferenceX> fdx;
+    Stencil<ForwardDifferenceY> fdy;
+    Stencil<GodunovX<T> > flux_x;
+    Stencil<GodunovY<T> > flux_y;
     ForwardIntegralY finty;
     BackwardIntegralY binty;
     double grav, T0, cp, f; Vector<2> eps;
     VariableList<T> vlist;
     Array<2, T> rdist, t_ov_tc, tv0, ptol;
-    Interval<2> cij;
+    Interval<2> cij, sicj, cisj;
     Water H2O; Ammonia NH3;
     CondensateList<2> species;
 public:
@@ -54,15 +58,22 @@ public:
         H2O(1.3E-2), NH3(4E-4), species(H2O, NH3)
     {
         // put scalar here, but should be determined from attributes in ncfile
-        eps = species.mu / 2.198E-3;
-        grav = 10.44;
-        T0 = 134.8;
-        cp = 11455.;
-        f = 2.128e-4;
-        cij = setups::cij;
+        eps     = species.mu / 2.198E-3;
+        grav    = 10.44;
+        T0      = 134.8;
+        cp      = 11455.;
+        f       = 2.128e-4;
+        cij     = setups::cij;
+        sicj    = setups::sicj;
+        cisj    = setups::cisj;
+
         CenterDifferenceX::dx = setups::dx;
+        ForwardDifferenceX::dx = setups::dx;
+        ForwardDifferenceY::dy = setups::dy;
         ForwardIntegralY::dy = setups::dy;
         BackwardIntegralY::dy = setups::dy;
+        flux_x.function().xwind = &uwind.wallx;
+        flux_y.function().ywind = &wwind.wally;
 
         rdist.initialize(cij); rdist = setups::ncvar["rdist"];
         t_ov_tc.initialize(cij); t_ov_tc = setups::ncvar["t_ov_tc"];
@@ -112,13 +123,21 @@ public:
         pdry.cell(cij) = ptol / (1. + esum(mixr.cell, cij));
         // mixing ratio: x = h * svp / pdry
         mixr.cell(cij) = rh.cell(cij) * svp.cell(cij) / pdry.cell(cij);
+        liq.cell /= setups::dt;
+    }
+    void advection(){
+        wwind.wallConstruct();
+        vlist.wallConstruct();
+        uwind.cell_t += fdx(flux_x(uwind.wallx(sicj))) + fdy(flux_y(uwind.wally(cisj)));
+        vwind.cell_t += (fdx(flux_x(vwind.wallx(sicj))) + fdy(flux_y(vwind.wally(cisj)))) / mass.cell(cij);
+        theta.cell_t += (fdx(flux_x(theta.wallx(sicj))) + fdy(flux_y(theta.wally(cisj)))) / mass.cell(cij);
+        mixr.cell_t  += (fdx(flux_x(mixr.wallx(sicj))) + fdy(flux_y(mixr.wally(cisj)))) / mass.cell(cij);
     }
     void observe(double _time){
         vlist.ncwrite(_time);
     }
     void forward(){
-        wwind.wallConstruct();
-        vlist.wallConstruct();
+        advection();
 
         updateBodyforce();
 
@@ -130,7 +149,7 @@ public:
 
         vlist.fixBoundary();
 
-        vlist.printInfo(3);
+        //vlist.printInfo(1);
         observe(1.);
     }
 };

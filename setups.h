@@ -18,7 +18,7 @@ namespace setups{
     double xlen, ylen, dx, dy, start, end, dt;
     std::string ncfile = "dynamics.nc";
     std::map<std::string, Array<2, double> > ncvar;
-    Interval<2> cij;
+    Interval<2> cij, sij, sicj, cisj;
 
     void ncConfigure(){
         NcFile dataFile(ncfile.c_str(), NcFile::ReadOnly);
@@ -57,6 +57,10 @@ namespace setups{
         dx      = xlen / (nx - 1);
         dy      = ylen / (ny - 1);
         cij     = Interval<2>(Interval<1>(0, nx - 1), Interval<1>(0, ny - 1));
+        sij[0]  = Interval<1>(cij[0].first() - 1, cij[0].last() + 1);
+        sij[1]  = Interval<1>(cij[1].first() - 1, cij[1].last() + 1);
+        sicj    = Interval<2>(sij[0], cij[1]);
+        cisj    = Interval<2>(cij[0], sij[1]);
     }
 }
 

@@ -71,17 +71,17 @@ public:
 
     /* characteristic reconstruction ... TODO */
 
+    template<class A, class B> inline void
+    static construct(const A& ua, const B& result, Interval<1> ci){
+        for (int i = ci.first(); i <= ci.last(); i++) construct(ua, result, i);
+    }
+
     /* 2D construction */
     template<class A, class B, class C> inline void
     static construct(const A& ua, const B& resultX, const C& resultY, int i, int j){
         //std::cout << " calculating ... (" << i << ", " << j << ") " << std::endl;
         construct(ua(AllDomain<1>(), j), resultX(AllDomain<1>(), j), i - ua.domain()[0].first());
         construct(ua(i, AllDomain<1>()), resultY(i, AllDomain<1>()), j - ua.domain()[1].first());
-    }
-
-    template<class A, class B> inline void
-    static construct(const A& ua, const B& result, Interval<1> ci){
-        for (int i = ci.first(); i <= ci.last(); i++) construct(ua, result, i);
     }
 
     template<class A, class B, class C> inline void
