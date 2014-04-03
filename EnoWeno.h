@@ -39,7 +39,7 @@ public:
 
     /* scalar reconstruction */
     template<class A, class B> void
-    static construct(const A& ua, const B& result, int i){
+    static construct(const A& ua, const B& result, int i, int offset = 0){
         int imin, imax, m, k;
         imin = i; imax = i;
         for (int m = 1; m < O; m++){
@@ -53,19 +53,19 @@ public:
                 ))) imin--;
             else imax++;
         }
-        result(i) = 0.;
+        result(i + offset) = 0.;
         for (int m = 0; m < O; m++){
-            result(i)(0) += enoc(i - imin - 1, m) * ua(imin + m);
-            result(i)(1) += enoc(i - imin, m) * ua(imin + m);
+            result(i + offset)(0) += enoc(i - imin - 1, m) * ua(imin + m);
+            result(i + offset)(1) += enoc(i - imin, m) * ua(imin + m);
         }
     }
 
     /* component-wise reconstruction */
     template<int S, class E, class G, class B> inline void
-    static construct(const Array<1, Vector<S, E>, G>& ua, const B& result, int i){
+    static construct(const Array<1, Vector<S, E>, G>& ua, const B& result, int i, int offset = 0){
         // relies on actual domain starts from zero
         for (int s = 0; s < S; s++){
-            construct(ua.comp(s), result.comp(s), i);
+            construct(ua.comp(s), result.comp(s), i, offset);
         };
     }
 
@@ -73,24 +73,30 @@ public:
 
     template<class A, class B> inline void
     static construct(const A& ua, const B& result, Interval<1> ci){
-        for (int i = ci.first(); i <= ci.last(); i++) construct(ua, result, i);
+        for (int i = ci.first() - 1; i <= ci.last() + 1; i++) construct(ua, result, i);
     }
 
     /* 2D construction */
     template<class A, class B, class C> inline void
     static construct(const A& ua, const B& resultX, const C& resultY, int i, int j){
-        //std::cout << " calculating ... (" << i << ", " << j << ") " << std::endl;
-        construct(ua(AllDomain<1>(), j), resultX(AllDomain<1>(), j), i - ua.domain()[0].first());
-        construct(ua(i, AllDomain<1>()), resultY(i, AllDomain<1>()), j - ua.domain()[1].first());
+        // wall value is one grid wider than interier cell value
+        construct(ua(AllDomain<1>(), j), resultX(AllDomain<1>(), j), i - ua.domain()[0].first(), ua.domain()[0].first() + 1);
+        construct(ua(i, AllDomain<1>()), resultY(i, AllDomain<1>()), j - ua.domain()[1].first(), ua.domain()[1].first() + 1);
     }
 
     template<class A, class B, class C> inline void
     static construct(const A& ua, const B& resultX, const C& resultY, Interval<2> cij){
-        int j;
+        //std::cout << " calculating ... (" << i << ", " << j << ") " << std::endl;
+        int i, j;
+        #pragma omp for private(i)
+        for (j = cij[1].first(); j <= cij[1].last(); j++)
+            for (i = cij[0].first() - 1; i <= cij[0].last() + 1; i++)
+                construct(ua(AllDomain<1>(), j), resultX(AllDomain<1>(), j), i - ua.domain()[0].first(), ua.domain()[0].first() + 1);
         #pragma omp for private(j)
-        for (int i = cij[0].first(); i <= cij[0].last(); i++)
-            for (j = cij[1].first(); j <= cij[1].last(); j++)
-                construct(ua, resultX, resultY, i, j);
+        for (i = cij[0].first(); i <= cij[0].last(); i++)
+            for (j = cij[1].first() - 1; j <= cij[1].last() + 1; j++)
+                construct(ua(i, AllDomain<1>()), resultY(i, AllDomain<1>()), j - ua.domain()[1].first(), ua.domain()[1].first() + 1);
+        //construct(ua, resultX, resultY, i, j);
     }
 };
 template<int O> double EnoScheme<O>::mpoly[_maxorder_][_maxorder_] = {

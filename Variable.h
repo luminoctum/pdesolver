@@ -19,7 +19,7 @@ public:
     virtual void wallConstruct() = 0;
 };
 
-template<int N, class T, class B = Periodic>
+template<int N, class T, class B>
 class Variable : public VariableBase<T>, public B
 {
     typedef T Element_t;
@@ -28,7 +28,8 @@ public:
     Variable(){}
     Variable(char* _name) : name(_name) {
         cij = setups::cij;
-        sij = setups::sij;
+        sicj = setups::sicj;
+        cisj = setups::cisj;
 
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
@@ -36,8 +37,8 @@ public:
 
         cell.initialize(cxy); cell = 0;
         cell_t.initialize(cij); cell_t = 0;
-        wallx.initialize(cxy); wallx = 0;
-        wally.initialize(cxy); wally = 0;
+        wallx.initialize(sicj); wallx = 0;
+        wally.initialize(cisj); wally = 0;
 
         cell(cij) = setups::ncvar[name];
     }
@@ -81,10 +82,10 @@ public:
 
     int getSize(){ return 1; };
 
-    void wallConstruct(){ eno.construct(cell, wallx, wally, sij); }
+    void wallConstruct(){ eno.construct(cell, wallx, wally, cij); }
 
     std::string name;
-    Interval<2> cxy, cij, sij;
+    Interval<2> cxy, cij, sicj, cisj;
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
     EnoScheme<N> eno;
@@ -101,7 +102,8 @@ public:
     Variable(char* _name[]){
         for (int i = 0; i < S; i++){ name[i] = std::string(_name[i]); };
         cij = setups::cij;
-        sij = setups::sij;
+        sicj = setups::sicj;
+        cisj = setups::cisj;
 
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
@@ -110,8 +112,8 @@ public:
         cell.initialize(cxy); cell = 0;
         cell_t.initialize(cij); cell_t = 0;
         // this has to be cxy because eno(cell, wallx)
-        wallx.initialize(cxy); wallx = 0;
-        wally.initialize(cxy); wally = 0;
+        wallx.initialize(sicj); wallx = 0;
+        wally.initialize(cisj); wally = 0;
 
         for (int i = 0; i < S; i++) cell(cij).comp(i) = setups::ncvar[name[i]];
     }
@@ -166,10 +168,10 @@ public:
 
     int getSize(){ return S; };
 
-    void wallConstruct(){ eno.construct(cell, wallx, wally, sij); }
+    void wallConstruct(){ eno.construct(cell, wallx, wally, cij); }
 
     std::string name[S];
-    Interval<2> cxy, cij, sij;
+    Interval<2> cxy, cij, sicj, cisj;
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
     EnoScheme<N> eno;

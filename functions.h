@@ -38,4 +38,14 @@ struct EigenSystem<2>{
     }
 };
 
+template<class A>
+void printarray(const A& a, Interval<2> cij){
+    for (int i = cij[0].first(); i < cij[0].last(); i++){
+        for (int j = cij[1].first(); j < cij[1].last(); j++)
+            printf("%6.1f", a(i, j));
+        printf("\n");
+    }
+    printf("\n");
+}
+
 #endif

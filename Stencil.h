@@ -84,6 +84,19 @@ struct Difference2Y{
 };
 double Difference2Y::dy = 1.;
 
+struct Difference2XY{
+    static double dx, dy;
+    Difference2XY(){}
+    template<class A> inline typename A::Element_t
+        operator()(const A& a, int i, int j) const{
+            return (a.read(i, j + 1) + a.read(i + 1, j) + a.read(i, j - 1) + a.read(i - 1, j) - 4. * a.read(i, j)) / (dx * dy);
+        }
+    inline int lowerExtent(int) const { return 1;}
+    inline int upperExtent(int) const { return 1;}
+};
+double Difference2XY::dx = 1.;
+double Difference2XY::dy = 1.;
+
 // Though it is not a stencil, assume 2d
 // assume the initial value is zero
 struct ForwardIntegralY{
@@ -163,6 +176,7 @@ struct GodunovX{
     Array<2, Vector<2, T> > *xwind;
     template<class A> inline typename A::Element_t::Element_t
     operator()(const A& a, int i, int j) const {
+        if (xwind->read(i - 1, j)(1) < 0 && xwind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
         if (xwind->read(i - 1, j)(1) + xwind->read(i, j)(0) > 0) return a.read(i - 1, j)(1) * xwind->read(i - 1, j)(1);
         else return a.read(i, j)(0) * xwind->read(i, j)(0); 
     }
@@ -175,7 +189,8 @@ struct GodunovY{
     Array<2, Vector<2, T> > *ywind;
     template<class A> inline typename A::Element_t::Element_t
     operator()(const A& a, int i, int j) const {
-        if (ywind->read(i, j - 1)(1) + ywind->read(i, j)(0) > 0) return a(i, j - 1)(1) * ywind->read(i, j - 1)(1);
+        if (ywind->read(i, j - 1)(1) < 0 && ywind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
+        if (ywind->read(i, j - 1)(1) + ywind->read(i, j)(0) > 0) return a.read(i, j - 1)(1) * ywind->read(i, j - 1)(1);
         else return a.read(i, j)(0) * ywind->read(i, j)(0); 
     }
     inline int lowerExtent(int d) const {return d;}

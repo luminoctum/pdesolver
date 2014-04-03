@@ -15,13 +15,14 @@ protected:
     Stencil<CenterDifferenceX> cdx;
     Stencil<ForwardDifferenceX> fdx;
     Stencil<ForwardDifferenceY> fdy;
+    Stencil<Difference2XY> laplace;
     Stencil<GodunovX<T> > flux_x;
     Stencil<GodunovY<T> > flux_y;
     ForwardIntegralY finty;
     BackwardIntegralY binty;
     double grav, T0, cp, f; Vector<2> eps;
     VariableList<T> vlist;
-    Array<2, T> rdist, t_ov_tc, tv0, ptol;
+    Array<2, T> rdist, t_ov_tc, tv0, ptol, massx, massy;
     Interval<2> cij, sicj, cisj;
     Water H2O; Ammonia NH3;
     CondensateList<2> species;
@@ -72,6 +73,7 @@ public:
         ForwardDifferenceY::dy = setups::dy;
         ForwardIntegralY::dy = setups::dy;
         BackwardIntegralY::dy = setups::dy;
+        //Difference2XY::dx = setups::dx; Difference2XY::dy = setups::dy;
         flux_x.function().xwind = &uwind.wallx;
         flux_y.function().ywind = &wwind.wally;
 
@@ -79,6 +81,8 @@ public:
         t_ov_tc.initialize(cij); t_ov_tc = setups::ncvar["t_ov_tc"];
         tv0.initialize(cij); tv0 = setups::ncvar["tv0"];
         ptol.initialize(cij); ptol = setups::ncvar["ptol"];
+        //massx.initialize(sicj); massx = setups::ncvar["massX"];
+        //massy.initialize(cisj); massy = setups::ncvar["massY"];
 
         vlist.mass = &mass;
         vlist.mvar = {
@@ -91,6 +95,7 @@ public:
             &uwind, &vwind, &theta, &mixr
         };
         vlist.fixBoundary();
+        printf("%-6s%-8s%-8s%-12s%-12s%-12s\n", "No.", "time", "uwind", "--theta--", "xH2O", "xNH3");
         //vlist.printInfo(1);
     };
     void updateDiagnostics(){
@@ -103,13 +108,9 @@ public:
     void updateBodyforce(){
         uwind.cell_t += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
         vwind.cell_t += - uwind.cell(cij) / mass.cell(cij) * (f + vwind.cell(cij) / rdist);
-        theta.cell_t += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij));
+        theta.cell_t += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij) / setups::dt);
     }
     void updateMicrophysics(){
-        // test condensing
-        //mixr.cell.comp(0) = max(mixr.cell.comp(0));
-        //mixr.cell.comp(1) = max(mixr.cell.comp(1));
-
         // saturation vapor pressure
         svp.cell.comp(0) = H2O.svp_from_t(temp.cell);
         svp.cell.comp(1) = NH3.svp_from_t(temp.cell);
@@ -123,25 +124,38 @@ public:
         pdry.cell(cij) = ptol / (1. + esum(mixr.cell, cij));
         // mixing ratio: x = h * svp / pdry
         mixr.cell(cij) = rh.cell(cij) * svp.cell(cij) / pdry.cell(cij);
-        liq.cell /= setups::dt;
     }
     void advection(){
         wwind.wallConstruct();
         vlist.wallConstruct();
-        uwind.cell_t += fdx(flux_x(uwind.wallx(sicj))) + fdy(flux_y(uwind.wally(cisj)));
-        vwind.cell_t += (fdx(flux_x(vwind.wallx(sicj))) + fdy(flux_y(vwind.wally(cisj)))) / mass.cell(cij);
-        theta.cell_t += (fdx(flux_x(theta.wallx(sicj))) + fdy(flux_y(theta.wally(cisj)))) / mass.cell(cij);
-        mixr.cell_t  += (fdx(flux_x(mixr.wallx(sicj))) + fdy(flux_y(mixr.wally(cisj)))) / mass.cell(cij);
+        //uwind.cell_t += fdx(flux_x(uwind.wallx) / setups::ncvar["massX"]) + fdy(flux_y(uwind.wally) / setups::ncvar["massY"]);
+        //vwind.cell_t += (fdx(flux_x(vwind.wallx)) + fdy(flux_y(vwind.wally))) / mass.cell(cij);
+        //theta.cell_t += (fdx(flux_x(theta.wallx)) + fdy(flux_y(theta.wally))) / mass.cell(cij);
+        uwind.cell_t += fdx(flux_x(uwind.wallx) / setups::ncvar["massX"]);//+ fdy(flux_y(uwind.wally) / setups::ncvar["massY"]);
+        theta.cell_t += fdx(flux_x(theta.wallx)) / mass.cell(cij);//+ fdy(flux_y(theta.wally))) / mass.cell(cij);
+        //mixr.cell_t  += (fdx(flux_x(mixr.wallx)) + fdy(flux_y(mixr.wally))) / mass.cell(cij);
+        //printarray(theta.cell, cij);
+        //exit(0);
     }
-    void observe(double _time){
+    void diffusion(){
+        //uwind.cell_t += 2E-3 / setups::dt * laplace(uwind.cell, cij);
+        //vwind.cell_t += 2E-3 / setups::dt * laplace(vwind.cell, cij);
+        theta.cell_t += 2E-2 / setups::dt * laplace(theta.cell, cij);
+    }
+    void observe(int i, double _time){
+        printf("%-6d%-8.1f%-8.1f%-6.0f%-6.0f%-12.2E%-12.2E\n", i, _time, 
+                max(uwind.cell(cij) / mass.cell(cij)), 
+                min(theta.cell(cij)), max(theta.cell(cij)), 
+                max(mixr.cell(cij).comp(0)), max(mixr.cell(cij).comp(1)));
         vlist.ncwrite(_time);
     }
     void forward(){
         advection();
+        //diffusion();
 
         updateBodyforce();
 
-        updateMicrophysics();
+        //updateMicrophysics();
 
         vlist.updateTendency();
 
@@ -150,7 +164,6 @@ public:
         vlist.fixBoundary();
 
         //vlist.printInfo(1);
-        observe(1.);
     }
 };
 
