@@ -2,6 +2,7 @@
 #define VARIABLE
 #include "Pooma/Arrays.h"
 #include "Boundary.h"
+#include "EnoWeno.h"
 #include "setups.h"
 
 template<class T>
@@ -13,7 +14,9 @@ public:
     virtual void fixBoundary() = 0;
     virtual const char* getName(int s = 0) = 0;
     virtual Array<2, T> getData(int s = 0) = 0;
+    virtual void updateTendency() = 0;
     virtual int getSize() = 0;
+    virtual void wallConstruct() = 0;
 };
 
 template<int N, class T, class B = Periodic>
@@ -25,15 +28,21 @@ public:
     Variable(){}
     Variable(char* _name) : name(_name) {
         cij = setups::cij;
+        sij[0] = Interval<1>(cij[0].first() - 1, cij[0].last() + 1);
+        sij[1] = Interval<1>(cij[1].first() - 1, cij[1].last() + 1);
+
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
         cxy = Interval<2>(cx, cy);
+
         cell.initialize(cxy); cell = 0;
         cell_t.initialize(cij); cell_t = 0;
         wallx.initialize(cxy); wallx = 0;
         wally.initialize(cxy); wally = 0;
+
         cell(cij) = setups::ncvar[name];
     }
+
     void printInfo(int level = 0){
         std::cout << "Variable: " << name << std::endl;
         std::cout << "Domain: " << cij << " , " << cxy << std::endl;
@@ -58,18 +67,28 @@ public:
         }
         std::cout << std::endl;
     }
+
     void fixBoundary(){ fix(cell, cij); }
+
+    void updateTendency(){ cell(cij) += cell_t; cell_t = 0; };
+
     const char* getName(int) { return name.c_str(); }
+
     Array<2, T> getData(int){ 
         Array<2, T> result(cij);
         result = cell(cij);
         return result; 
     }
+
     int getSize(){ return 1; };
+
+    void wallConstruct(){ eno.construct(cell, wallx, wally, sij); }
+
     std::string name;
-    Interval<2> cxy, cij;
+    Interval<2> cxy, cij, sij;
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
+    EnoScheme<N> eno;
 };
 
 // default template arguments may not be used in partial specializations
@@ -83,16 +102,21 @@ public:
     Variable(char* _name[]){
         for (int i = 0; i < S; i++){ name[i] = std::string(_name[i]); };
         cij = setups::cij;
+        sij[0] = Interval<1>(cij[0].first() - 1, cij[0].last() + 1);
+        sij[1] = Interval<1>(cij[1].first() - 1, cij[1].last() + 1);
+
         Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
         Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
         cxy = Interval<2>(cx, cy);
+
         cell.initialize(cxy); cell = 0;
         cell_t.initialize(cij); cell_t = 0;
         wallx.initialize(cxy); wallx = 0;
         wally.initialize(cxy); wally = 0;
+
         for (int i = 0; i < S; i++) cell(cij).comp(i) = setups::ncvar[name[i]];
     }
-    //~Variable(){ for (int i = 0; i < S; i++) delete name[i]; }
+
     void printInfo(int level = 0){
         std::cout << "Variable: (";
         for (int i = 0; i < S - 1; i++) std::cout << name[i] << ", ";
@@ -117,25 +141,39 @@ public:
         if (level > 1){
             std::cout << "Sample Cell Value: " << pij << std::endl;
             std::cout << cell(pij);
+            std::cout << "Sample WallY Value: " << pij << std::endl;
+            std::cout << wally(pij);
         }
         if (level > 2){
-            std::cout << "Sample Wall Value: " << pij << std::endl;
+            std::cout << "Sample WallX Value: " << pij << std::endl;
             std::cout << wallx(pij);
+            std::cout << "Sample WallY Value: " << pij << std::endl;
+            std::cout << wally(pij);
         }
-        std::cout << std::endl;
+        std::cout << std::endl << std::endl;
     }
+
     void fixBoundary(){ fix(cell, cij); }
+
+    void updateTendency(){ cell(cij) += cell_t; cell_t = 0;};
+
     const char* getName(int s) { return name[s].c_str(); }
+
     Array<2, T> getData(int s){ 
         Array<2, T> result(cij);
         result = cell(cij).comp(s);
         return result; 
     }
+
     int getSize(){ return S; };
+
+    void wallConstruct(){ eno.construct(cell, wallx, wally, sij); }
+
     std::string name[S];
-    Interval<2> cxy, cij;
+    Interval<2> cxy, cij, sij;
     Array<2, Element_t> cell, cell_t;
     Array<2, Vector<2, Element_t> > wallx, wally;
+    EnoScheme<N> eno;
 };
 
 template<class T>
@@ -159,6 +197,12 @@ public:
     void fixBoundary(){
         for (int i = 0; i < mvar.size(); i++) mvar[i]->fixBoundary();
         for (int i = 0; i < uvar.size(); i++) uvar[i]->fixBoundary();
+    }
+    void updateTendency(){
+        for (int i = 0; i < pvar.size(); i++) pvar[i]->updateTendency();
+    }
+    void wallConstruct(){
+        for (int i = 0; i < pvar.size(); i++) pvar[i]->wallConstruct();
     }
     void ncwrite(double time){
         setups::current++;

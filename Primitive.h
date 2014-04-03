@@ -90,9 +90,9 @@ public:
         phi.cell(cij) = finty(grav / T0 * (tempv.cell(cij) - tv0), cij);
     }
     void updateBodyforce(){
-        uwind.cell_t(cij) += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
-        vwind.cell_t(cij) += - uwind.cell(cij) / mass.cell(cij) * (f + vwind.cell(cij) / rdist);
-        theta.cell_t(cij) += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij));
+        uwind.cell_t += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
+        vwind.cell_t += - uwind.cell(cij) / mass.cell(cij) * (f + vwind.cell(cij) / rdist);
+        theta.cell_t += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij));
     }
     void updateMicrophysics(){
         // test condensing
@@ -113,8 +113,25 @@ public:
         // mixing ratio: x = h * svp / pdry
         mixr.cell(cij) = rh.cell(cij) * svp.cell(cij) / pdry.cell(cij);
     }
-    void observe(double time){
-        vlist.ncwrite(time);
+    void observe(double _time){
+        vlist.ncwrite(_time);
+    }
+    void forward(){
+        wwind.wallConstruct();
+        vlist.wallConstruct();
+
+        updateBodyforce();
+
+        updateMicrophysics();
+
+        vlist.updateTendency();
+
+        updateDiagnostics();
+
+        vlist.fixBoundary();
+
+        vlist.printInfo(3);
+        observe(1.);
     }
 };
 
