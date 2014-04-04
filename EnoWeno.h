@@ -40,7 +40,7 @@ public:
     /* scalar reconstruction */
     template<class A, class B> void
     static construct(const A& ua, const B& result, int i, int offset = 0){
-        int imin, imax, m, k;
+        int imin, imax;
         imin = i; imax = i;
         for (int m = 1; m < O; m++){
             if (fabs(sum(
@@ -63,10 +63,30 @@ public:
     /* component-wise reconstruction */
     template<int S, class E, class G, class B> inline void
     static construct(const Array<1, Vector<S, E>, G>& ua, const B& result, int i, int offset = 0){
-        // relies on actual domain starts from zero
+        int imin, imax;
+        result(i + offset) = 0.;
+        for (int s = 0; s < S; s++){
+            imin = i; imax = i;
+            for (int m = 1; m < O; m++){
+                if (fabs(sum(
+                        ua(Interval<1>(imin - 1, imax)).comp(s)
+                        * polyc(m, Interval<1>(_maxorder_ - 1 - m, _maxorder_ - 1))
+                    )) < 
+                    fabs(sum(
+                        ua(Interval<1>(imin, imax + 1)).comp(s)
+                        * polyc(m, Interval<1>(_maxorder_ - 1 - m, _maxorder_ - 1))
+                    ))) imin--;
+                else imax++;
+            }
+            for (int m = 0; m < O; m++){
+                result(i + offset)(0)(s) += enoc(i - imin - 1, m) * ua(imin + m)(s);
+                result(i + offset)(1)(s) += enoc(i - imin, m) * ua(imin + m)(s);
+            }
+        }
+        /*
         for (int s = 0; s < S; s++){
             construct(ua.comp(s), result.comp(s), i, offset);
-        };
+        };*/
     }
 
     /* characteristic reconstruction ... TODO */

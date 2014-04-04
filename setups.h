@@ -54,8 +54,8 @@ namespace setups{
         end     = dataFile.get_att("end")->as_double(0);
         dt      = dataFile.get_att("step")->as_double(0);
         frame   = dataFile.get_att("frame")->as_int(0);
-        dx      = xlen / (nx - 1);
-        dy      = ylen / (ny - 1);
+        dx      = xlen / nx;
+        dy      = ylen / ny;
         cij     = Interval<2>(Interval<1>(0, nx - 1), Interval<1>(0, ny - 1));
         sij[0]  = Interval<1>(cij[0].first() - 1, cij[0].last() + 1);
         sij[1]  = Interval<1>(cij[1].first() - 1, cij[1].last() + 1);

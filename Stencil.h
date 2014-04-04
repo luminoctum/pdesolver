@@ -84,18 +84,15 @@ struct Difference2Y{
 };
 double Difference2Y::dy = 1.;
 
-struct Difference2XY{
-    static double dx, dy;
-    Difference2XY(){}
+struct Laplace{
+    Laplace(){}
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
-            return (a.read(i, j + 1) + a.read(i + 1, j) + a.read(i, j - 1) + a.read(i - 1, j) - 4. * a.read(i, j)) / (dx * dy);
+            return (a.read(i, j + 1) + a.read(i + 1, j) + a.read(i, j - 1) + a.read(i - 1, j) - 4. * a.read(i, j));
         }
     inline int lowerExtent(int) const { return 1;}
     inline int upperExtent(int) const { return 1;}
 };
-double Difference2XY::dx = 1.;
-double Difference2XY::dy = 1.;
 
 // Though it is not a stencil, assume 2d
 // assume the initial value is zero
@@ -116,22 +113,34 @@ struct ForwardIntegralY{
 };
 double ForwardIntegralY::dy = 1.;
 
+/*
 struct BackwardIntegralY{
     static double dy;
     BackwardIntegralY(){}
-    template<class ET, class EG> 
-    inline Array<2, ET> operator()(const Array<2, ET, EG>& a, const Interval<2>& cij) const{
-        Interval<1> ci = cij[0];
-        int jfirst = cij[1].first();
-        int jlast = cij[1].last();
-        Array<2> result(cij);
-        result(ci, jlast) = 0.;
-        for (int j = jlast - 1; j >= jfirst; j--)
+    template<class A, class B> void inline
+    operator()(const A& a, const B& result, const Interval<2>& cij) const{
+        //Pooma::blockAndEvaluate();
+        Interval<1> ci = cij[0], cj = cij[1];
+        result(ci, cj.last() - 1) = - 2. * dy * a(ci, cj.last());
+        for (int j = cj.last() - 1; j >= cj.first(); j--){
+            result(ci, j - 1) = result(ci, j + 1) - 2. * dy * a(ci, j);
+        }
+    }
+};*/
+
+struct BackwardIntegralY{
+    static double dy;
+    BackwardIntegralY(){}
+    template<class A, class B> void inline
+    operator()(const A& a, const B& result, const Interval<2>& cij) const{
+        Interval<1> ci = cij[0], cj = cij[1];
+        result(ci, cj.last()) = 0.;
+        for (int j = cj.last() - 1; j >= cj.first(); j--)
             result(ci, j) = result(ci, j + 1) - 0.5 * dy * (a(ci, j) + a(ci, j + 1));
-        return result;
     }
 };
 double BackwardIntegralY::dy = 1.;
+
 
 struct Average{
     Average(){}

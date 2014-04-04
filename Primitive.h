@@ -13,9 +13,10 @@ class Primitive{
 protected:
     Stencil<ElementSum> esum;
     Stencil<CenterDifferenceX> cdx;
+    Stencil<CenterDifferenceY> cdy;
     Stencil<ForwardDifferenceX> fdx;
     Stencil<ForwardDifferenceY> fdy;
-    Stencil<Difference2XY> laplace;
+    Stencil<Laplace> laplace;
     Stencil<GodunovX<T> > flux_x;
     Stencil<GodunovY<T> > flux_y;
     ForwardIntegralY finty;
@@ -28,7 +29,7 @@ protected:
     CondensateList<2> species;
 public:
     Variable<O, T,
-        Boundary<Reflective, ConstExtrap, LinearExtrap, ConstExtrap>
+        Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap>
             > mass, uwind, vwind;
     Variable<O, T,
         Boundary<Mirror, FixedConst<T>, ConstExtrap, ConstExtrap>
@@ -40,7 +41,7 @@ public:
         Boundary<Mirror, FixedConst<Vector<2, T> >, ConstExtrap, ConstExtrap>
             > svp, rh, liq;
     Variable<O, T,
-        Boundary<Mirror, ConstExtrap, ConstExtrap, FixedConst<T> >
+        Boundary<Mirror, Dependent, ConstExtrap, FixedConst<T> >
             > wwind;
     Variable<O, T,
         Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
@@ -69,6 +70,7 @@ public:
         cisj    = setups::cisj;
 
         CenterDifferenceX::dx = setups::dx;
+        CenterDifferenceY::dy = setups::dy;
         ForwardDifferenceX::dx = setups::dx;
         ForwardDifferenceY::dy = setups::dy;
         ForwardIntegralY::dy = setups::dy;
@@ -95,11 +97,13 @@ public:
             &uwind, &vwind, &theta, &mixr
         };
         vlist.fixBoundary();
-        printf("%-6s%-8s%-8s%-12s%-12s%-12s\n", "No.", "time", "uwind", "--theta--", "xH2O", "xNH3");
+        printf("%-6s%-8s%-8s%-12s%-12s%-12s%-12s\n", "No.", "time", "uwind", "--theta--", "xH2O", "xNH3", "mass");
         //vlist.printInfo(1);
     };
     void updateDiagnostics(){
-        wwind.cell(cij) = - binty(cdx(uwind.cell, cij), cij);
+        //std::cout << CenterDifferenceX::dx << std::endl;
+        //std::cout << CenterDifferenceY::dy << std::endl;
+        binty(- cdx(uwind.cell), wwind.cell, cij);
         temp.cell(cij) = t_ov_tc * theta.cell(cij);
         // stencil output is zero based, need to specify cij explicitly
         tempv.cell(cij) = temp.cell(cij) * (1. + esum(mixr.cell, cij))/(1. + esum(eps * mixr.cell, cij));
@@ -118,6 +122,7 @@ public:
         rh.cell = mixr.cell * pdry.cell / svp.cell;
         // condensing liquid
         for (int s = 0; s < 2; s++){
+            rh.cell.comp(s) = where(rh.cell.comp(s) < 0., 0., rh.cell.comp(s));
             liq.cell.comp(s) = where(rh.cell.comp(s) > 1.2, (rh.cell.comp(s) - 1.) * svp.cell.comp(s) / pdry.cell, 0.);
             rh.cell.comp(s) = where(liq.cell.comp(s) > 0., 1., rh.cell.comp(s));
         }
@@ -128,30 +133,48 @@ public:
     void advection(){
         wwind.wallConstruct();
         vlist.wallConstruct();
-        //uwind.cell_t += fdx(flux_x(uwind.wallx) / setups::ncvar["massX"]) + fdy(flux_y(uwind.wally) / setups::ncvar["massY"]);
-        //vwind.cell_t += (fdx(flux_x(vwind.wallx)) + fdy(flux_y(vwind.wally))) / mass.cell(cij);
-        //theta.cell_t += (fdx(flux_x(theta.wallx)) + fdy(flux_y(theta.wally))) / mass.cell(cij);
-        uwind.cell_t += fdx(flux_x(uwind.wallx) / setups::ncvar["massX"]);//+ fdy(flux_y(uwind.wally) / setups::ncvar["massY"]);
-        theta.cell_t += fdx(flux_x(theta.wallx)) / mass.cell(cij);//+ fdy(flux_y(theta.wally))) / mass.cell(cij);
-        //mixr.cell_t  += (fdx(flux_x(mixr.wallx)) + fdy(flux_y(mixr.wally))) / mass.cell(cij);
+        std::cout << setups::dt / setups::dy << std::endl;
+        exit(0);
+
+        uwind.cell_t += fdx(flux_x(uwind.wallx) * setups::ncvar["_massX"]) + fdy(flux_y(uwind.wally) * setups::ncvar["_massY"]);
+        vwind.cell_t += (fdx(flux_x(vwind.wallx)) + fdy(flux_y(vwind.wally))) / mass.cell(cij);
+        theta.cell_t += (fdx(flux_x(theta.wallx)) + fdy(flux_y(theta.wally))) / mass.cell(cij);
+        mixr.cell_t  += (fdx(flux_x(mixr.wallx)) + fdy(flux_y(mixr.wally))) / mass.cell(cij);
+
+        std::cout << mixr.cell(cij).read(0, Interval<1>(30, 40)).comp(1) << std::endl;
+        std::cout << wwind.cell(cij).read(0, Interval<1>(30, 40)) << std::endl;
+        std::cout << flux_y(mixr.wally).read(0, Interval<1>(30, 40)).comp(1) << std::endl;;
+        std::cout << fdy(flux_y(mixr.wally)).read(0, Interval<1>(30, 40)).comp(1) * setups::dy << std::endl;;
+        std::cout << fdx(flux_x(mixr.wallx)).read(0, Interval<1>(30, 40)).comp(1) * setups::dx << std::endl;;
+        std::cout << mixr.cell_t(0, Interval<1>(30, 40)).comp(1) << std::endl;
+        /*
+        std::cout << mixr.wally.read(0, AllDomain<1>()).comp(0) << std::endl;
+        std::cout << mixr.wally.read(0, AllDomain<1>()).comp(1) << std::endl;
+        std::cout << wwind.wally.read(0, AllDomain<1>()).comp(1) << std::endl;
+        */
+        std::cout << "aa" << std::endl;
         //printarray(theta.cell, cij);
         //exit(0);
     }
     void diffusion(){
-        //uwind.cell_t += 2E-3 / setups::dt * laplace(uwind.cell, cij);
-        //vwind.cell_t += 2E-3 / setups::dt * laplace(vwind.cell, cij);
-        theta.cell_t += 2E-2 / setups::dt * laplace(theta.cell, cij);
+        uwind.cell_t += 0.03 / setups::dt * laplace(uwind.cell, cij);
+        vwind.cell_t += 0.03 / setups::dt * laplace(vwind.cell, cij);
+        theta.cell_t += 0.03 / setups::dt * laplace(theta.cell, cij);
+        //mixr.cell_t += 0.03 / setups::dt * laplace(mixr.cell, cij);
     }
     void observe(int i, double _time){
-        printf("%-6d%-8.1f%-8.1f%-6.0f%-6.0f%-12.2E%-12.2E\n", i, _time, 
+        printf("%-6d%-8.1f%-8.1f%-6.0f%-6.0f%-12.2E%-12.2E%-12.2E\n", i, _time, 
                 max(uwind.cell(cij) / mass.cell(cij)), 
                 min(theta.cell(cij)), max(theta.cell(cij)), 
-                max(mixr.cell(cij).comp(0)), max(mixr.cell(cij).comp(1)));
+                max(mixr.cell(cij).comp(0)), max(mixr.cell(cij).comp(1)),
+                max(cdy(wwind.cell, cij) + cdx(uwind.cell, cij))
+                );
+        //std::cout << uwind.cell(0, AllDomain<1>()) << std::endl;
         vlist.ncwrite(_time);
     }
     void forward(){
         advection();
-        //diffusion();
+        diffusion();
 
         updateBodyforce();
 
@@ -159,9 +182,9 @@ public:
 
         vlist.updateTendency();
 
-        updateDiagnostics();
-
         vlist.fixBoundary();
+
+        updateDiagnostics();
 
         //vlist.printInfo(1);
     }

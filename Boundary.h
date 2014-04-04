@@ -176,15 +176,15 @@ struct Mirror{
     }
 };
 
-struct NONE{
+struct Dependent{
     template<class A> void fix(A& a, const Interval<1>& ci){}
     template<class A> void fix(A& a, const Interval<2>& cij){}
-    friend std::ostream& operator<< (std::ostream &os, const NONE &other){
-        os << "Undefined"; return os;
+    friend std::ostream& operator<< (std::ostream &os, const Dependent &other){
+        os << "Dependent"; return os;
     }
 };
 
-template<class L = NONE, class B = NONE, class R = L, class T = B>
+template<class L = Dependent, class B = Dependent, class R = L, class T = B>
 class Boundary{
 public:
     L left; B bottom; R right; T top;
