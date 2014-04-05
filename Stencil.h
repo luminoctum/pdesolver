@@ -1,6 +1,6 @@
 #ifndef STENCIL
 #define STENCIL
-enum { DimX, DimY, DimZ, Forward, Backward, Trapz, Staggered};
+enum { DimX, DimY, DimZ, D1, D2, O1, O2, Forward, Backward, Trapz, Staggered};
 
 struct FiniteDifferenceBase{
     static double dx, dy;
@@ -13,7 +13,7 @@ template<int drv, int order, int dim, int offset = 0>
 struct FiniteDifference {};
 
 template<>
-struct FiniteDifference<1, 1, DimX> : FiniteDifferenceBase{
+struct FiniteDifference<D1, O1, DimX> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i) const{
             return (a.read(i + 1) - a.read(i)) / dx;
@@ -27,7 +27,7 @@ struct FiniteDifference<1, 1, DimX> : FiniteDifferenceBase{
 };
 
 template<>
-struct FiniteDifference<1, 1, DimY> : FiniteDifferenceBase{
+struct FiniteDifference<D1, O1, DimY> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i, j + 1) - a.read(i, j)) / dy;
@@ -37,7 +37,7 @@ struct FiniteDifference<1, 1, DimY> : FiniteDifferenceBase{
 };
 
 template<>
-struct FiniteDifference<1, 2, DimX> : FiniteDifferenceBase{
+struct FiniteDifference<D1, O2, DimX> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i) const{
             return (a.read(i + 1) - a.read(i - 1)) / (2. * dx);
@@ -51,7 +51,7 @@ struct FiniteDifference<1, 2, DimX> : FiniteDifferenceBase{
 };
 
 template<>
-struct FiniteDifference<1, 2, DimY> : FiniteDifferenceBase{
+struct FiniteDifference<D1, O2, DimY> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i, j + 1) - a.read(i, j - 1)) / (2. * dy);
@@ -61,7 +61,7 @@ struct FiniteDifference<1, 2, DimY> : FiniteDifferenceBase{
 };
 
 template<>
-struct FiniteDifference<2, 2, DimX> : FiniteDifferenceBase{
+struct FiniteDifference<D2, O2, DimX> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i + 1, j) - 2. * a.read(i, j) + a.read(i - 1, j)) / (dx * dx);
@@ -71,7 +71,7 @@ struct FiniteDifference<2, 2, DimX> : FiniteDifferenceBase{
 };
 
 template<>
-struct FiniteDifference<2, 2, DimY> : FiniteDifferenceBase{
+struct FiniteDifference<D2, O2, DimY> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i, j + 1) - 2. * a.read(i, j) + a.read(i, j -1)) / (dy * dy);
@@ -110,9 +110,19 @@ struct Integrate<Backward, Staggered, DimY> : FiniteDifferenceBase{
     template<class A, class B> void inline
     operator()(const A& a, const B& result, const Interval<2>& cij) const{
         Interval<1> ci = cij[0], cj = cij[1];
-        result(ci, cj.last() - 1) = - 2. * dy * a(ci, cj.last());
-        for (int j = cj.last() - 1; j >= cj.first(); j--){
-            result(ci, j - 1) = result(ci, j + 1) - 2. * dy * a(ci, j);
+        result(ci, cj.last()) = 0.;
+        for (int j = cj.last(); j >= cj.first(); j--){
+            result(ci, j - 1) = result(ci, j) - dy * a(ci, j);
+        }
+    }
+    template<class A, class T, class G> void inline
+    operator()(const A& a, const Array<2, Vector<2, T>, G>& result, const Interval<2>& cij) const{
+        Interval<1> ci = cij[0], cj = cij[1];
+        result(ci, cj.last() + 1).comp(0) = 0.;
+        result(ci, cj.last()).comp(1) = 0.;
+        for (int j = cj.last(); j >= cj.first(); j--){
+            result(ci, j).comp(0) = result(ci, j).comp(1) - dy * a(ci, j);
+            result(ci, j - 1).comp(1) = result(ci, j).comp(0);
         }
     }
 };
@@ -195,10 +205,28 @@ struct ElementSum{
     inline int upperExtent(int) const {return 0;}
 };
 
+struct ElementAverage{
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i) const {
+        return 0.5 * (a.read(i)(0) + a.read(i)(1));
+    }
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i, int j) const {
+        return 0.5 * (a.read(i, j)(0) + a.read(i, j)(1));
+    }
+    inline int lowerExtent(int) const {return 0;}
+    inline int upperExtent(int) const {return 0;}
+};
+
 
 /* Partial specialize Return of Functor */
 template<class T>
 struct FunctorResult<ElementSum, T>{
+    typedef typename T::Element_t Type_t;
+};
+
+template<class T>
+struct FunctorResult<ElementAverage, T>{
     typedef typename T::Element_t Type_t;
 };
 

@@ -12,15 +12,18 @@ template<int O, class T = double>
 class Primitive{
 protected:
     Stencil<ElementSum> esum;
-    Stencil<FiniteDifference<1, 2, DimX> > cdx;
-    Stencil<FiniteDifference<1, 2, DimY> > cdy;
-    Stencil<FiniteDifference<1, 1, DimX> > fdx;
-    Stencil<FiniteDifference<1, 1, DimY> > fdy;
+    Stencil<ElementAverage> eavg;
+    Stencil<FiniteDifference<D1, O2, DimX> > cdx;
+    Stencil<FiniteDifference<D1, O2, DimY> > cdy;
+    Stencil<FiniteDifference<D1, O1, DimX> > fdx;
+    Stencil<FiniteDifference<D1, O1, DimY> > fdy;
     Stencil<Laplace> laplace;
     Stencil<Godunov<T, DimX> > fux;
     Stencil<Godunov<T, DimY> > fuy;
     Integrate<Forward, Trapz, DimY> finty;
     Integrate<Backward, Staggered, DimY> binty;
+    Array<2, T, ConstantFunction> ones;
+    Array<2, Vector<2, T>, ConstantFunction> onesx, onesy;
 
     double grav, T0, cp, f; Vector<2> eps;
     VariableList<T> vlist;
@@ -74,6 +77,9 @@ public:
         FiniteDifferenceBase::dy = setups::dy;
         fux.function().xwind = &uwind.wallx;
         fuy.function().ywind = &wwind.wally;
+        ones.initialize(cij); ones.engine().setConstant(1.);
+        onesx.initialize(sicj); onesx.engine().setConstant(Vector<2>(1., 1.));
+        onesy.initialize(cisj); onesy.engine().setConstant(Vector<2>(1., 1.));
 
         rdist.initialize(cij); rdist = setups::ncvar["rdist"];
         t_ov_tc.initialize(cij); t_ov_tc = setups::ncvar["t_ov_tc"];
@@ -97,9 +103,7 @@ public:
         //vlist.printInfo(1);
     };
     void updateDiagnostics(){
-        //std::cout << CenterDifferenceX::dx << std::endl;
-        //std::cout << CenterDifferenceY::dy << std::endl;
-        binty(- cdx(uwind.cell), wwind.cell, cij);
+        wwind.cell(cij) = eavg(wwind.wally, cij);
         temp.cell(cij) = t_ov_tc * theta.cell(cij);
         // stencil output is zero based, need to specify cij explicitly
         tempv.cell(cij) = temp.cell(cij) * (1. + esum(mixr.cell, cij))/(1. + esum(eps * mixr.cell, cij));
@@ -108,7 +112,7 @@ public:
     void updateBodyforce(){
         uwind.cell_t += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
         vwind.cell_t += - uwind.cell(cij) / mass.cell(cij) * (f + vwind.cell(cij) / rdist);
-        theta.cell_t += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij) / setups::dt);
+        theta.cell_t += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij)) / setups::dt;
     }
     void updateMicrophysics(){
         // saturation vapor pressure
@@ -127,34 +131,18 @@ public:
         mixr.cell(cij) = rh.cell(cij) * svp.cell(cij) / pdry.cell(cij);
     }
     void advection(){
-        wwind.wallConstruct();
         vlist.wallConstruct();
-        //std::cout << setups::dt / setups::dy << std::endl;
+        binty( - fdx(fux(onesx)), wwind.wally, cij);
 
-        uwind.cell_t += fdx(fux(uwind.wallx) * setups::ncvar["_massX"]) + fdy(fuy(uwind.wally) * setups::ncvar["_massY"]);
-        vwind.cell_t += (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass.cell(cij);
-        theta.cell_t += (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass.cell(cij);
-        mixr.cell_t  += (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass.cell(cij);
-
-        /*
-        std::cout << mixr.cell(cij).read(0, Interval<1>(30, 40)).comp(1) << std::endl;
-        std::cout << wwind.cell(cij).read(0, Interval<1>(30, 40)) << std::endl;
-        std::cout << fuy(mixr.wally).read(0, Interval<1>(30, 40)).comp(1) << std::endl;;
-        std::cout << fdy(fuy(mixr.wally)).read(0, Interval<1>(30, 40)).comp(1) * setups::dy << std::endl;;
-        std::cout << fdx(fux(mixr.wallx)).read(0, Interval<1>(30, 40)).comp(1) * setups::dx << std::endl;;
-        std::cout << mixr.cell_t(0, Interval<1>(30, 40)).comp(1) << std::endl;
-        std::cout << mixr.wally.read(0, AllDomain<1>()).comp(0) << std::endl;
-        std::cout << mixr.wally.read(0, AllDomain<1>()).comp(1) << std::endl;
-        std::cout << wwind.wally.read(0, AllDomain<1>()).comp(1) << std::endl;
-        std::cout << "aa" << std::endl;
-        */
-        //printarray(theta.cell, cij);
-        //exit(0);
+        uwind.cell_t -= fdx(fux(uwind.wallx) * setups::ncvar["_massX"]) + fdy(fuy(uwind.wally) * setups::ncvar["_massY"]);
+        vwind.cell_t -= (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass.cell(cij);
+        theta.cell_t -= (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass.cell(cij);
+        mixr.cell_t  -= (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass.cell(cij);
     }
     void diffusion(){
         uwind.cell_t += 0.03 / setups::dt * laplace(uwind.cell, cij);
         vwind.cell_t += 0.03 / setups::dt * laplace(vwind.cell, cij);
-        theta.cell_t += 0.03 / setups::dt * laplace(theta.cell, cij);
+        //theta.cell_t += 0.03 / setups::dt * laplace(theta.cell, cij);
         //mixr.cell_t += 0.03 / setups::dt * laplace(mixr.cell, cij);
     }
     void observe(int i, double _time){
@@ -173,7 +161,7 @@ public:
 
         updateBodyforce();
 
-        //updateMicrophysics();
+        updateMicrophysics();
 
         vlist.updateTendency();
 
