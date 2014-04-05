@@ -1,32 +1,33 @@
 #ifndef STENCIL
 #define STENCIL
-struct ForwardDifference{
-    static double dx;
-    ForwardDifference(){}
+enum { DimX, DimY, DimZ, Forward, Backward, Trapz, Staggered};
+
+struct FiniteDifferenceBase{
+    static double dx, dy;
+};
+double FiniteDifferenceBase::dx = 1.;
+double FiniteDifferenceBase::dy = 1.;
+
+/* Finite Difference */
+template<int drv, int order, int dim, int offset = 0> 
+struct FiniteDifference {};
+
+template<>
+struct FiniteDifference<1, 1, DimX> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i) const{
             return (a.read(i + 1) - a.read(i)) / dx;
         }
-    inline int lowerExtent(int) const { return 0;}
-    inline int upperExtent(int) const { return 1;}
-};
-double ForwardDifference::dx = 1.;
-
-struct ForwardDifferenceX{
-    static double dx;
-    ForwardDifferenceX(){}
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i + 1, j) - a.read(i, j)) / dx;
         }
-    inline int lowerExtent(int) const { return 0;}
+    inline int lowerExtent(int d) const { return 0;}
     inline int upperExtent(int d) const { return 1 - d;}
 };
-double ForwardDifferenceX::dx = 1.;
 
-struct ForwardDifferenceY{
-    static double dy;
-    ForwardDifferenceY(){}
+template<>
+struct FiniteDifference<1, 1, DimY> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i, j + 1) - a.read(i, j)) / dy;
@@ -34,11 +35,13 @@ struct ForwardDifferenceY{
     inline int lowerExtent(int) const { return 0;}
     inline int upperExtent(int d) const { return d;}
 };
-double ForwardDifferenceY::dy = 1.;
 
-struct CenterDifferenceX{
-    static double dx;
-    CenterDifferenceX(){}
+template<>
+struct FiniteDifference<1, 2, DimX> : FiniteDifferenceBase{
+    template<class A> inline typename A::Element_t
+        operator()(const A& a, int i) const{
+            return (a.read(i + 1) - a.read(i - 1)) / (2. * dx);
+        }
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i + 1, j) - a.read(i - 1, j)) / (2. * dx);
@@ -46,11 +49,9 @@ struct CenterDifferenceX{
     inline int lowerExtent(int d) const { return 1 - d;}
     inline int upperExtent(int d) const { return 1 - d;}
 };
-double CenterDifferenceX::dx = 1.;
 
-struct CenterDifferenceY{
-    static double dy;
-    CenterDifferenceY(){}
+template<>
+struct FiniteDifference<1, 2, DimY> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i, j + 1) - a.read(i, j - 1)) / (2. * dy);
@@ -58,11 +59,9 @@ struct CenterDifferenceY{
     inline int lowerExtent(int d) const { return d;}
     inline int upperExtent(int d) const { return d;}
 };
-double CenterDifferenceY::dy = 1.;
 
-struct Difference2X{
-    static double dx;
-    Difference2X(){}
+template<>
+struct FiniteDifference<2, 2, DimX> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i + 1, j) - 2. * a.read(i, j) + a.read(i - 1, j)) / (dx * dx);
@@ -70,11 +69,9 @@ struct Difference2X{
     inline int lowerExtent(int d) const { return 1 - d;}
     inline int upperExtent(int d) const { return 1 - d;}
 };
-double Difference2X::dx = 1.;
 
-struct Difference2Y{
-    static double dy;
-    Difference2Y(){}
+template<>
+struct FiniteDifference<2, 2, DimY> : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i, int j) const{
             return (a.read(i, j + 1) - 2. * a.read(i, j) + a.read(i, j -1)) / (dy * dy);
@@ -82,55 +79,23 @@ struct Difference2Y{
     inline int lowerExtent(int d) const { return d;}
     inline int upperExtent(int d) const { return d;}
 };
-double Difference2Y::dy = 1.;
 
-struct Laplace{
-    Laplace(){}
-    template<class A> inline typename A::Element_t
-        operator()(const A& a, int i, int j) const{
-            return (a.read(i, j + 1) + a.read(i + 1, j) + a.read(i, j - 1) + a.read(i - 1, j) - 4. * a.read(i, j));
-        }
-    inline int lowerExtent(int) const { return 1;}
-    inline int upperExtent(int) const { return 1;}
-};
+// Though currently it is not a stencil, it is also placed here
+template <int dir, int type, int dim> struct Integrate{};
 
-// Though it is not a stencil, assume 2d
-// assume the initial value is zero
-struct ForwardIntegralY{
-    static double dy;
-    ForwardIntegralY(){}
-    template<class ET, class EG> 
-    inline Array<2, ET> operator()(const Array<2, ET, EG>& a, const Interval<2>& cij) const{
-        Interval<1> ci = cij[0];
-        int jfirst = cij[1].first();
-        int jlast = cij[1].last();
-        Array<2> result(cij);
-        result(ci, jfirst) = 0.;
-        for (int j = jfirst + 1; j <= jlast; j++)
-            result(ci, j) = result(ci, j - 1) + 0.5 * dy * (a(ci, j - 1) + a(ci, j));
-        return result;
-    }
-};
-double ForwardIntegralY::dy = 1.;
-
-/*
-struct BackwardIntegralY{
-    static double dy;
-    BackwardIntegralY(){}
+template<>
+struct Integrate<Forward, Trapz, DimY> : FiniteDifferenceBase{
     template<class A, class B> void inline
     operator()(const A& a, const B& result, const Interval<2>& cij) const{
-        //Pooma::blockAndEvaluate();
         Interval<1> ci = cij[0], cj = cij[1];
-        result(ci, cj.last() - 1) = - 2. * dy * a(ci, cj.last());
-        for (int j = cj.last() - 1; j >= cj.first(); j--){
-            result(ci, j - 1) = result(ci, j + 1) - 2. * dy * a(ci, j);
-        }
+        result(ci, cj.first()) = 0.;
+        for (int j = cj.first() + 1; j <= cj.last(); j++)
+            result(ci, j) = result(ci, j - 1) + 0.5 * dy * (a(ci, j - 1) + a(ci, j));
     }
-};*/
+};
 
-struct BackwardIntegralY{
-    static double dy;
-    BackwardIntegralY(){}
+template<>
+struct Integrate<Backward, Trapz, DimY> : FiniteDifferenceBase{
     template<class A, class B> void inline
     operator()(const A& a, const B& result, const Interval<2>& cij) const{
         Interval<1> ci = cij[0], cj = cij[1];
@@ -139,11 +104,56 @@ struct BackwardIntegralY{
             result(ci, j) = result(ci, j + 1) - 0.5 * dy * (a(ci, j) + a(ci, j + 1));
     }
 };
-double BackwardIntegralY::dy = 1.;
 
+template<>
+struct Integrate<Backward, Staggered, DimY> : FiniteDifferenceBase{
+    template<class A, class B> void inline
+    operator()(const A& a, const B& result, const Interval<2>& cij) const{
+        Interval<1> ci = cij[0], cj = cij[1];
+        result(ci, cj.last() - 1) = - 2. * dy * a(ci, cj.last());
+        for (int j = cj.last() - 1; j >= cj.first(); j--){
+            result(ci, j - 1) = result(ci, j + 1) - 2. * dy * a(ci, j);
+        }
+    }
+};
+
+/* Godunov Flux */
+
+template<class T, int Dim = DimX>
+struct Godunov{
+    Array<2, Vector<2, T> > *xwind;
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i) const {
+        if (xwind->read(i - 1)(1) < 0 && xwind->read(i)(0) > 0) return typename A::Element_t::Element_t(0.);
+        if (xwind->read(i - 1)(1) + xwind->read(i)(0) > 0) return a.read(i - 1)(1) * xwind->read(i - 1)(1);
+        else return a.read(i)(0) * xwind->read(i)(0); 
+    }
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i, int j) const {
+        if (xwind->read(i - 1, j)(1) < 0 && xwind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
+        if (xwind->read(i - 1, j)(1) + xwind->read(i, j)(0) > 0) return a.read(i - 1, j)(1) * xwind->read(i - 1, j)(1);
+        else return a.read(i, j)(0) * xwind->read(i, j)(0); 
+    }
+    inline int lowerExtent(int d) const {return 1 - d;}
+    inline int upperExtent(int d) const {return 0;}
+};
+
+template<class T>
+struct Godunov<T, DimY>{
+    Array<2, Vector<2, T> > *ywind;
+    template<class A> inline typename A::Element_t::Element_t
+    operator()(const A& a, int i, int j) const {
+        if (ywind->read(i, j - 1)(1) < 0 && ywind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
+        if (ywind->read(i, j - 1)(1) + ywind->read(i, j)(0) > 0) return a.read(i, j - 1)(1) * ywind->read(i, j - 1)(1);
+        else return a.read(i, j)(0) * ywind->read(i, j)(0); 
+    }
+    inline int lowerExtent(int d) const {return d;}
+    inline int upperExtent(int d) const {return 0;}
+};
+
+/* misc */
 
 struct Average{
-    Average(){}
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i) const{
             return 0.5 * (a.read(i) + a.read(i + 1));
@@ -152,9 +162,16 @@ struct Average{
     inline int upperExtent(int) const { return 1;}
 };
 
-struct Curvature{
-    static double dx, dy;
-    Curvature(){};
+struct Laplace{
+    template<class A> inline typename A::Element_t
+        operator()(const A& a, int i, int j) const{
+            return (a.read(i, j + 1) + a.read(i + 1, j) + a.read(i, j - 1) + a.read(i - 1, j) - 4. * a.read(i, j));
+        }
+    inline int lowerExtent(int) const { return 1;}
+    inline int upperExtent(int) const { return 1;}
+};
+
+struct Curvature : FiniteDifferenceBase{
     template<class A> inline typename A::Element_t
     operator()(const A& a, int i, int j) const{
         typename A::Element_t ax, ay, axx, axy, ayy;
@@ -168,8 +185,6 @@ struct Curvature{
     inline int lowerExtent(int) const {return 1;}
     inline int upperExtent(int) const {return 1;}
 };
-double Curvature::dx = 1.;
-double Curvature::dy = 1.;
 
 struct ElementSum{
     template<class A> inline typename A::Element_t::Element_t
@@ -180,31 +195,6 @@ struct ElementSum{
     inline int upperExtent(int) const {return 0;}
 };
 
-template<class T>
-struct GodunovX{
-    Array<2, Vector<2, T> > *xwind;
-    template<class A> inline typename A::Element_t::Element_t
-    operator()(const A& a, int i, int j) const {
-        if (xwind->read(i - 1, j)(1) < 0 && xwind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
-        if (xwind->read(i - 1, j)(1) + xwind->read(i, j)(0) > 0) return a.read(i - 1, j)(1) * xwind->read(i - 1, j)(1);
-        else return a.read(i, j)(0) * xwind->read(i, j)(0); 
-    }
-    inline int lowerExtent(int d) const {return 1 - d;}
-    inline int upperExtent(int d) const {return 0;}
-};
-
-template<class T>
-struct GodunovY{
-    Array<2, Vector<2, T> > *ywind;
-    template<class A> inline typename A::Element_t::Element_t
-    operator()(const A& a, int i, int j) const {
-        if (ywind->read(i, j - 1)(1) < 0 && ywind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
-        if (ywind->read(i, j - 1)(1) + ywind->read(i, j)(0) > 0) return a.read(i, j - 1)(1) * ywind->read(i, j - 1)(1);
-        else return a.read(i, j)(0) * ywind->read(i, j)(0); 
-    }
-    inline int lowerExtent(int d) const {return d;}
-    inline int upperExtent(int d) const {return 0;}
-};
 
 /* Partial specialize Return of Functor */
 template<class T>
@@ -212,13 +202,9 @@ struct FunctorResult<ElementSum, T>{
     typedef typename T::Element_t Type_t;
 };
 
-template<class E, class T>
-struct FunctorResult<GodunovX<E>, T>{
+template<class E, int Dim, class T>
+struct FunctorResult<Godunov<E, Dim>, T>{
     typedef typename T::Element_t Type_t;
 };
 
-template<class E, class T>
-struct FunctorResult<GodunovY<E>, T>{
-    typedef typename T::Element_t Type_t;
-};
 #endif

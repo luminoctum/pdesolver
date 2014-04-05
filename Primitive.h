@@ -12,15 +12,16 @@ template<int O, class T = double>
 class Primitive{
 protected:
     Stencil<ElementSum> esum;
-    Stencil<CenterDifferenceX> cdx;
-    Stencil<CenterDifferenceY> cdy;
-    Stencil<ForwardDifferenceX> fdx;
-    Stencil<ForwardDifferenceY> fdy;
+    Stencil<FiniteDifference<1, 2, DimX> > cdx;
+    Stencil<FiniteDifference<1, 2, DimY> > cdy;
+    Stencil<FiniteDifference<1, 1, DimX> > fdx;
+    Stencil<FiniteDifference<1, 1, DimY> > fdy;
     Stencil<Laplace> laplace;
-    Stencil<GodunovX<T> > flux_x;
-    Stencil<GodunovY<T> > flux_y;
-    ForwardIntegralY finty;
-    BackwardIntegralY binty;
+    Stencil<Godunov<T, DimX> > fux;
+    Stencil<Godunov<T, DimY> > fuy;
+    Integrate<Forward, Trapz, DimY> finty;
+    Integrate<Backward, Staggered, DimY> binty;
+
     double grav, T0, cp, f; Vector<2> eps;
     VariableList<T> vlist;
     Array<2, T> rdist, t_ov_tc, tv0, ptol, massx, massy;
@@ -69,15 +70,10 @@ public:
         sicj    = setups::sicj;
         cisj    = setups::cisj;
 
-        CenterDifferenceX::dx = setups::dx;
-        CenterDifferenceY::dy = setups::dy;
-        ForwardDifferenceX::dx = setups::dx;
-        ForwardDifferenceY::dy = setups::dy;
-        ForwardIntegralY::dy = setups::dy;
-        BackwardIntegralY::dy = setups::dy;
-        //Difference2XY::dx = setups::dx; Difference2XY::dy = setups::dy;
-        flux_x.function().xwind = &uwind.wallx;
-        flux_y.function().ywind = &wwind.wally;
+        FiniteDifferenceBase::dx = setups::dx;
+        FiniteDifferenceBase::dy = setups::dy;
+        fux.function().xwind = &uwind.wallx;
+        fuy.function().ywind = &wwind.wally;
 
         rdist.initialize(cij); rdist = setups::ncvar["rdist"];
         t_ov_tc.initialize(cij); t_ov_tc = setups::ncvar["t_ov_tc"];
@@ -107,7 +103,7 @@ public:
         temp.cell(cij) = t_ov_tc * theta.cell(cij);
         // stencil output is zero based, need to specify cij explicitly
         tempv.cell(cij) = temp.cell(cij) * (1. + esum(mixr.cell, cij))/(1. + esum(eps * mixr.cell, cij));
-        phi.cell(cij) = finty(grav / T0 * (tempv.cell(cij) - tv0), cij);
+        finty(grav / T0 * (tempv.cell(cij) - tv0), phi.cell, cij);
     }
     void updateBodyforce(){
         uwind.cell_t += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
@@ -133,26 +129,25 @@ public:
     void advection(){
         wwind.wallConstruct();
         vlist.wallConstruct();
-        std::cout << setups::dt / setups::dy << std::endl;
-        exit(0);
+        //std::cout << setups::dt / setups::dy << std::endl;
 
-        uwind.cell_t += fdx(flux_x(uwind.wallx) * setups::ncvar["_massX"]) + fdy(flux_y(uwind.wally) * setups::ncvar["_massY"]);
-        vwind.cell_t += (fdx(flux_x(vwind.wallx)) + fdy(flux_y(vwind.wally))) / mass.cell(cij);
-        theta.cell_t += (fdx(flux_x(theta.wallx)) + fdy(flux_y(theta.wally))) / mass.cell(cij);
-        mixr.cell_t  += (fdx(flux_x(mixr.wallx)) + fdy(flux_y(mixr.wally))) / mass.cell(cij);
+        uwind.cell_t += fdx(fux(uwind.wallx) * setups::ncvar["_massX"]) + fdy(fuy(uwind.wally) * setups::ncvar["_massY"]);
+        vwind.cell_t += (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass.cell(cij);
+        theta.cell_t += (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass.cell(cij);
+        mixr.cell_t  += (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass.cell(cij);
 
+        /*
         std::cout << mixr.cell(cij).read(0, Interval<1>(30, 40)).comp(1) << std::endl;
         std::cout << wwind.cell(cij).read(0, Interval<1>(30, 40)) << std::endl;
-        std::cout << flux_y(mixr.wally).read(0, Interval<1>(30, 40)).comp(1) << std::endl;;
-        std::cout << fdy(flux_y(mixr.wally)).read(0, Interval<1>(30, 40)).comp(1) * setups::dy << std::endl;;
-        std::cout << fdx(flux_x(mixr.wallx)).read(0, Interval<1>(30, 40)).comp(1) * setups::dx << std::endl;;
+        std::cout << fuy(mixr.wally).read(0, Interval<1>(30, 40)).comp(1) << std::endl;;
+        std::cout << fdy(fuy(mixr.wally)).read(0, Interval<1>(30, 40)).comp(1) * setups::dy << std::endl;;
+        std::cout << fdx(fux(mixr.wallx)).read(0, Interval<1>(30, 40)).comp(1) * setups::dx << std::endl;;
         std::cout << mixr.cell_t(0, Interval<1>(30, 40)).comp(1) << std::endl;
-        /*
         std::cout << mixr.wally.read(0, AllDomain<1>()).comp(0) << std::endl;
         std::cout << mixr.wally.read(0, AllDomain<1>()).comp(1) << std::endl;
         std::cout << wwind.wally.read(0, AllDomain<1>()).comp(1) << std::endl;
-        */
         std::cout << "aa" << std::endl;
+        */
         //printarray(theta.cell, cij);
         //exit(0);
     }
