@@ -83,10 +83,6 @@ public:
                 result(i + offset)(1)(s) += enoc(i - imin, m) * ua(imin + m)(s);
             }
         }
-        /*
-        for (int s = 0; s < S; s++){
-            construct(ua.comp(s), result.comp(s), i, offset);
-        };*/
     }
 
     /* characteristic reconstruction ... TODO */

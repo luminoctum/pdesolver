@@ -46,14 +46,14 @@ namespace setups{
             ncvar[data->name()].initialize(buffer.domain());
             ncvar[data->name()] = buffer;
         }
-        nx      = dataFile.get_att("nx")->as_int(0);
-        ny      = dataFile.get_att("ny")->as_int(0);
-        xlen    = dataFile.get_att("xlen")->as_double(0);
-        ylen    = dataFile.get_att("ylen")->as_double(0);
-        start   = ncvar["time"](0, current);
-        end     = dataFile.get_att("end")->as_double(0);
-        dt      = dataFile.get_att("step")->as_double(0);
-        frame   = dataFile.get_att("frame")->as_int(0);
+        nx      = dataFile.get_att("num_grids_in_x")->as_int(0);
+        ny      = dataFile.get_att("num_grids_in_y")->as_int(0);
+        xlen    = dataFile.get_att("length_x")->as_double(0);
+        ylen    = dataFile.get_att("length_y")->as_double(0);
+        start   = ncvar["time_start"](0, current);
+        dt      = dataFile.get_att("time_step")->as_double(0);
+        end     = dataFile.get_att("time_end")->as_double(0);
+        frame   = dataFile.get_att("steps_per_frame")->as_int(0);
         dx      = xlen / nx;
         dy      = ylen / ny;
         cij     = Interval<2>(Interval<1>(0, nx - 1), Interval<1>(0, ny - 1));

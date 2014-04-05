@@ -80,7 +80,7 @@ struct FiniteDifference<D2, O2, DimY> : FiniteDifferenceBase{
     inline int upperExtent(int d) const { return d;}
 };
 
-// Though currently it is not a stencil, it is also placed here
+// Though currently it is not a stencil yet, it is still placed here
 template <int dir, int type, int dim> struct Integrate{};
 
 template<>
@@ -128,7 +128,6 @@ struct Integrate<Backward, Staggered, DimY> : FiniteDifferenceBase{
 };
 
 /* Godunov Flux */
-
 template<class T, int Dim = DimX>
 struct Godunov{
     Array<2, Vector<2, T> > *xwind;
@@ -161,8 +160,7 @@ struct Godunov<T, DimY>{
     inline int upperExtent(int d) const {return 0;}
 };
 
-/* misc */
-
+/* miscellaneous */
 struct Average{
     template<class A> inline typename A::Element_t
         operator()(const A& a, int i) const{

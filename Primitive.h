@@ -17,18 +17,18 @@ protected:
     Stencil<FiniteDifference<D1, O2, DimY> > cdy;
     Stencil<FiniteDifference<D1, O1, DimX> > fdx;
     Stencil<FiniteDifference<D1, O1, DimY> > fdy;
+    Integrate<Forward, Trapz, DimY> finty;
+    Integrate<Backward, Staggered, DimY> binty;
     Stencil<Laplace> laplace;
     Stencil<Godunov<T, DimX> > fux;
     Stencil<Godunov<T, DimY> > fuy;
-    Integrate<Forward, Trapz, DimY> finty;
-    Integrate<Backward, Staggered, DimY> binty;
     Array<2, T, ConstantFunction> ones;
     Array<2, Vector<2, T>, ConstantFunction> onesx, onesy;
+    Interval<2> cij, sicj, cisj;
 
     double grav, T0, cp, f; Vector<2> eps;
     VariableList<T> vlist;
     Array<2, T> rdist, t_ov_tc, tv0, ptol, massx, massy;
-    Interval<2> cij, sicj, cisj;
     Water H2O; Ammonia NH3;
     CondensateList<2> species;
 public:
@@ -75,11 +75,11 @@ public:
 
         FiniteDifferenceBase::dx = setups::dx;
         FiniteDifferenceBase::dy = setups::dy;
-        fux.function().xwind = &uwind.wallx;
-        fuy.function().ywind = &wwind.wally;
         ones.initialize(cij); ones.engine().setConstant(1.);
         onesx.initialize(sicj); onesx.engine().setConstant(Vector<2>(1., 1.));
         onesy.initialize(cisj); onesy.engine().setConstant(Vector<2>(1., 1.));
+        fux.function().xwind = &uwind.wallx;
+        fuy.function().ywind = &wwind.wally;
 
         rdist.initialize(cij); rdist = setups::ncvar["rdist"];
         t_ov_tc.initialize(cij); t_ov_tc = setups::ncvar["t_ov_tc"];
@@ -139,11 +139,9 @@ public:
         theta.cell_t -= (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass.cell(cij);
         mixr.cell_t  -= (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass.cell(cij);
     }
-    void diffusion(){
+    void dissipation(){
         uwind.cell_t += 0.03 / setups::dt * laplace(uwind.cell, cij);
         vwind.cell_t += 0.03 / setups::dt * laplace(vwind.cell, cij);
-        //theta.cell_t += 0.03 / setups::dt * laplace(theta.cell, cij);
-        //mixr.cell_t += 0.03 / setups::dt * laplace(mixr.cell, cij);
     }
     void observe(int i, double _time){
         printf("%-6d%-8.1f%-8.1f%-6.0f%-6.0f%-12.2E%-12.2E%-12.2E\n", i, _time, 
@@ -152,12 +150,11 @@ public:
                 max(mixr.cell(cij).comp(0)), max(mixr.cell(cij).comp(1)),
                 max(cdy(wwind.cell, cij) + cdx(uwind.cell, cij))
                 );
-        //std::cout << uwind.cell(0, AllDomain<1>()) << std::endl;
         vlist.ncwrite(_time);
     }
     void forward(){
         advection();
-        diffusion();
+        dissipation();
 
         updateBodyforce();
 
