@@ -3,6 +3,7 @@
 #include "Pooma/Arrays.h"
 #include "netcdf.hh"
 #include "utils.h"
+#include "jansson.h"
 #include <map>
 
 namespace setups{

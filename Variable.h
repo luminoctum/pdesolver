@@ -26,7 +26,8 @@ class Variable : public VariableBase<T>, public B
     typedef B Boundary_t;
 public:
     Variable(){}
-    Variable(char* _name) : name(_name) {
+    //Variable(char* _name) : name(_name) {
+    Variable(std::string _name) : name(_name) {
         cij = setups::cij;
         sicj = setups::sicj;
         cisj = setups::cisj;
@@ -99,8 +100,13 @@ class Variable<N, Vector<S, T>, B> : public VariableBase<T>, public B
     typedef B Boundary_t;
 public:
     Variable(){for (int i = 0; i < S; i++) name[i] = new char[1];}
-    Variable(char* _name[]){
-        for (int i = 0; i < S; i++){ name[i] = std::string(_name[i]); };
+    //Variable(char* _name[]){
+    Variable(std::initializer_list<std::string> _name){
+        //for (int i = 0; i < S; i++){ name[i] = _name[i]; };
+        int j = 0;
+        for (auto i = _name.begin(), j = 0; i != _name.end(); i++, j++) {
+            name[j] = *i;
+        }
         cij = setups::cij;
         sicj = setups::sicj;
         cisj = setups::cisj;

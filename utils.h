@@ -40,3 +40,21 @@ template<> struct CompileTimeError<true> {};
         exit(0) 
 #define BREAKPOINT exit(0)
 
+/* set up initial value from nc file */
+#define _ncInitialize1_(var) var.initialize(setups::ncvar[#var].domain()); var = setups::ncvar[#var] 
+#define _ncInitialize2_(var1, var2) _ncInitialize1_(var1); _ncInitialize1_(var2)
+#define _ncInitialize3_(var1, var2, var3) _ncInitialize1_(var1); _ncInitialize2_(var2, var3)
+#define _ncInitialize4_(var1, var2, var3, var4) \
+    _ncInitialize1_(var1); _ncInitialize3_(var2, var3, var4)
+#define _ncInitialize5_(var1, var2, var3, var4, var5) \
+    _ncInitialize1_(var1); _ncInitialize4_(var2, var3, var4, var5)
+#define _ncInitialize6_(var1, var2, var3, var4, var5, var6) \
+    _ncInitialize1_(var1); _ncInitialize5_(var2, var3, var4, var5, var6)
+#define _ncInitialize7_(var1, var2, var3, var4, var5, var6, var7) \
+    _ncInitialize1_(var1); _ncInitialize6_(var2, var3, var4, var5, var6, var7)
+#define _ncInitialize8_(var1, var2, var3, var4, var5, var6, var7, var8) \
+    _ncInitialize1_(var1); _ncInitialize7_(var2, var3, var4, var5, var6, var7, var8)
+#define _ncInitialize9_(var1, var2, var3, var4, var5, var6, var7, var8, var9) \
+    _ncInitialize1_(var1); _ncInitialize8_(var2, var3, var4, var5, var6, var7, var8, var9)
+#define _ncInitialize10_(var1, var2, var3, var4, var5, var6, var7, var8, var9, var10) \
+    _ncInitialize1_(var1); _ncInitialize9_(var2, var3, var4, var5, var6, var7, var8, var9, var10)
