@@ -1,9 +1,8 @@
 #ifndef PRIMITIVE
 #define PRIMITIVE
-#include <iostream>
+#include <vector>
 #include "Variable.h"
 #include "utils.h"
-#include <vector>
 #include "Stencil.h"
 #include "MicroPhysics.h"
 
@@ -44,51 +43,41 @@ protected:
     }
 };
 
-template<int O, class T = double>
+template<class Cf>
 class Primitive : public ModelBase{
+    typedef typename Cf::Precision T;
 protected:
-    Stencil<Godunov<T, DimX> > fux;
-    Stencil<Godunov<T, DimY> > fuy;
+    Stencil<typename Cf::FluxCalculatorX> fux;
+    Stencil<typename Cf::FluxCalculatorY> fuy;
 
-    double grav, T0, cp, f; Vector<2> eps;
+    double grav, T0, cp, f; Vector<2, T> eps;
     VariableList<T> vlist;
     Array<2, T> rdist, t_ov_tc, tv0, ptol, imassx, imassy;
     Water H2O; Ammonia NH3;
     CondensateList<2> species;
 public:
-    Variable<O, T,
-        Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap>
-        //Boundary<FixedConst<T>, ConstExtrap, ConstExtrap, ConstExtrap>
-            > mass, uwind, vwind;
-    Variable<O, T,
-        Boundary<Mirror, FixedConst<T>, ConstExtrap, ConstExtrap>
-            > theta;
-    Variable<O, Vector<2, T>,
-        Boundary<Mirror, FixedConst<Vector<2, T> >, LinearExtrap, ConstExtrap>
-            > mixr;
-    Variable<O, Vector<2, T>,
-        Boundary<Mirror, FixedConst<Vector<2, T> >, ConstExtrap, ConstExtrap>
-            > svp, rh, liq;
-    Variable<O, T,
-        Boundary<Mirror, Dependent, ConstExtrap, FixedConst<T> >
-            > wwind;
-    Variable<O, T,
-        Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
-        //Boundary<ConstExtrap, FixedConst<T>, LinearExtrap, ConstExtrap>
-            > phi;
-    Variable<O, T,
-        Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
-        //Boundary<ConstExtrap, FixedConst<T>, LinearExtrap, ConstExtrap>
-            > temp, tempv;
-    Variable<O, T,
-        Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
-            > pdry;
+    Variable<Cf, Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap> 
+        > mass, uwind, vwind;
+    Variable<Cf, Boundary<Mirror, FixedConst<T>, ConstExtrap, ConstExtrap>
+        > theta;
+    Variable<Cf, Boundary<Mirror, FixedConst<Vector<2, T> >, LinearExtrap, ConstExtrap>,
+        Vector<2, T> > mixr;
+    Variable<Cf, Boundary<Mirror, FixedConst<Vector<2, T> >, ConstExtrap, ConstExtrap>,
+        Vector<2, T> > svp, rh, liq;
+    Variable<Cf, Boundary<Mirror, Dependent, ConstExtrap, FixedConst<T> >
+        > wwind;
+    Variable<Cf, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
+        > phi;
+    Variable<Cf, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
+        > temp, tempv;
+    Variable<Cf, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
+        > pdry;
 
     Primitive() : mass("mass"),
         uwind("uwind"), vwind("vwind"), theta("tc"), mixr({"xH2O", "xNH3"}), 
         wwind("wwind"), phi("phi"), temp("temp"), tempv("tempv"), pdry("pdry"),
         svp({"svpH2O", "svpNH3"}), rh({"hH2O", "hNH3"}), liq({"qH2O", "qNH3"}),
-        H2O(1.3E-2), NH3(4E-4), species(H2O, NH3)
+        H2O(1.3E-2), NH3(4E-4) ,species(H2O, NH3)
     {
         // put scalar here, but should be determined from attributes in ncfile
         eps     = species.mu / 2.198E-3;
@@ -125,9 +114,9 @@ public:
         finty(grav / T0 * (tempv.cell(cij) - tv0), phi.cell, cij);
     }
     void updateBodyforce(){
-        uwind.cell_t += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
-        vwind.cell_t += - uwind.cell(cij) / mass.cell(cij) * (f + vwind.cell(cij) / rdist);
-        //theta.cell_t += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij)) / setups::dt;
+        uwind.tendency += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
+        vwind.tendency += - uwind.cell(cij) / mass.cell(cij) * (f + vwind.cell(cij) / rdist);
+        //theta.tendency += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij)) / setups::dt;
     }
     void updateMicrophysics(){
         // saturation vapor pressure
@@ -148,14 +137,14 @@ public:
     void advection(){
         vlist.wallConstruct();
         binty( - fdx(fux(onesx)), wwind.wally, cij);
-        uwind.cell_t -= fdx(fux(uwind.wallx) * imassx) + fdy(fuy(uwind.wally) * imassy);
-        vwind.cell_t -= (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass.cell(cij);
-        theta.cell_t -= (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass.cell(cij);
-        mixr.cell_t  -= (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass.cell(cij);
+        uwind.tendency -= fdx(fux(uwind.wallx) * imassx) + fdy(fuy(uwind.wally) * imassy);
+        vwind.tendency -= (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass.cell(cij);
+        theta.tendency -= (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass.cell(cij);
+        mixr.tendency  -= (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass.cell(cij);
     }
     void dissipation(){
-        uwind.cell_t += 0.03 / setups::dt * laplace(uwind.cell, cij);
-        vwind.cell_t += 0.03 / setups::dt * laplace(vwind.cell, cij);
+        uwind.tendency += 0.03 / setups::dt * laplace(uwind.cell, cij);
+        vwind.tendency += 0.03 / setups::dt * laplace(vwind.cell, cij);
     }
     void observe(int i, double _time){
         printf("%-6d%-8.1f%-8.1f%-6.0f%-6.0f%-12.2E%-12.2E%-12.2E\n", i, _time, 

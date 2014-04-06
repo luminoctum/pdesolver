@@ -21,7 +21,7 @@ namespace setups{
     std::map<std::string, Array<2, double> > ncvar;
     Interval<2> cij, sij, sicj, cisj;
 
-    void ncConfigure(){
+    void initialize(){
         NcFile dataFile(ncfile.c_str(), NcFile::ReadOnly);
         current = dataFile.get_dim("time")->size() - 1;
         if (!dataFile.is_valid()){ ASSERT_FILE_NOT_FOUND(ncfile); }

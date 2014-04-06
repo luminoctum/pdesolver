@@ -1,5 +1,6 @@
 #ifndef STENCIL
 #define STENCIL
+#include "Pooma/Arrays.h"
 enum { DimX, DimY, DimZ, D1, D2, O1, O2, Forward, Backward, Trapz, Staggered};
 
 struct FiniteDifferenceBase{
@@ -127,39 +128,6 @@ struct Integrate<Backward, Staggered, DimY> : FiniteDifferenceBase{
     }
 };
 
-/* Godunov Flux */
-template<class T, int Dim = DimX>
-struct Godunov{
-    Array<2, Vector<2, T> > *xwind;
-    template<class A> inline typename A::Element_t::Element_t
-    operator()(const A& a, int i) const {
-        if (xwind->read(i - 1)(1) < 0 && xwind->read(i)(0) > 0) return typename A::Element_t::Element_t(0.);
-        if (xwind->read(i - 1)(1) + xwind->read(i)(0) > 0) return a.read(i - 1)(1) * xwind->read(i - 1)(1);
-        else return a.read(i)(0) * xwind->read(i)(0); 
-    }
-    template<class A> inline typename A::Element_t::Element_t
-    operator()(const A& a, int i, int j) const {
-        if (xwind->read(i - 1, j)(1) < 0 && xwind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
-        if (xwind->read(i - 1, j)(1) + xwind->read(i, j)(0) > 0) return a.read(i - 1, j)(1) * xwind->read(i - 1, j)(1);
-        else return a.read(i, j)(0) * xwind->read(i, j)(0); 
-    }
-    inline int lowerExtent(int d) const {return 1 - d;}
-    inline int upperExtent(int d) const {return 0;}
-};
-
-template<class T>
-struct Godunov<T, DimY>{
-    Array<2, Vector<2, T> > *ywind;
-    template<class A> inline typename A::Element_t::Element_t
-    operator()(const A& a, int i, int j) const {
-        if (ywind->read(i, j - 1)(1) < 0 && ywind->read(i, j)(0) > 0) return typename A::Element_t::Element_t(0.);
-        if (ywind->read(i, j - 1)(1) + ywind->read(i, j)(0) > 0) return a.read(i, j - 1)(1) * ywind->read(i, j - 1)(1);
-        else return a.read(i, j)(0) * ywind->read(i, j)(0); 
-    }
-    inline int lowerExtent(int d) const {return d;}
-    inline int upperExtent(int d) const {return 0;}
-};
-
 /* miscellaneous */
 struct Average{
     template<class A> inline typename A::Element_t
@@ -225,11 +193,6 @@ struct FunctorResult<ElementSum, T>{
 
 template<class T>
 struct FunctorResult<ElementAverage, T>{
-    typedef typename T::Element_t Type_t;
-};
-
-template<class E, int Dim, class T>
-struct FunctorResult<Godunov<E, Dim>, T>{
     typedef typename T::Element_t Type_t;
 };
 

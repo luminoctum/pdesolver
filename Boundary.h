@@ -117,8 +117,8 @@ struct FixedConst{
             right.initialize(cj);
             bottom.initialize(cx);
             top.initialize(cx);
-            left = a(ifirst, cj); 
-            right = a(ilast, cj); 
+            left = a(ifirst, cj);
+            right = a(ilast, cj);
             for (int i = xfirst; i < ifirst; i++) a(i, cj) =  left;
             for (int i = xlast; i > ilast; i--) a(i, cj) =  right;
             bottom = a(cx, jfirst);
@@ -189,7 +189,7 @@ class Boundary{
 public:
     L left; B bottom; R right; T top;
     template<class A> void fix(A& a, const Interval<2>& cij){
-        // corner might got messed up
+        // corner might get messed up
         Interval<2> cxy = a.domain();
         int ifirst = cij[0].first(), ilast = cij[0].last();
         int jfirst = cij[1].first(), jlast = cij[1].last();

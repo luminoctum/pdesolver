@@ -2,8 +2,8 @@
 #define VARIABLE
 #include "Pooma/Arrays.h"
 #include "Boundary.h"
-#include "EnoWeno.h"
 #include "setups.h"
+enum{ Snapshot, Mass, Average };
 
 template<class T>
 class VariableBase{
@@ -13,31 +13,35 @@ public:
     virtual void printInfo(int level = 0) = 0;
     virtual void fixBoundary() = 0;
     virtual const char* getName(int s = 0) = 0;
-    virtual Array<2, T> getData(int s = 0) = 0;
     virtual void updateTendency() = 0;
     virtual int getSize() = 0;
     virtual void wallConstruct() = 0;
+    virtual Array<2, T> getData(int s = 0) = 0;
 };
 
-template<int N, class T, class B>
+template<class Cf, 
+    class B = Dependent,
+    class T = typename Cf::Precision, 
+    int ViewType = Snapshot>
 class Variable : public VariableBase<T>, public B
 {
     typedef T Element_t;
     typedef B Boundary_t;
 public:
     Variable(){}
-    //Variable(char* _name) : name(_name) {
     Variable(std::string _name) : name(_name) {
         cij = setups::cij;
         sicj = setups::sicj;
         cisj = setups::cisj;
 
-        Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
-        Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
+        int guard_layer = Cf::SpatialOrder;
+        Interval<1> cx(cij[0].first() - guard_layer, cij[0].last() + guard_layer);
+        Interval<1> cy(cij[1].first() - guard_layer, cij[1].last() + guard_layer);
         cxy = Interval<2>(cx, cy);
 
         cell.initialize(cxy); cell = 0;
-        cell_t.initialize(cij); cell_t = 0;
+        tendency.initialize(cij); tendency = 0;
+        output.initialize(cij); output = 0;
         wallx.initialize(sicj); wallx = 0;
         wally.initialize(cisj); wally = 0;
 
@@ -71,7 +75,7 @@ public:
 
     void fixBoundary(){ fix(cell, cij); }
 
-    void updateTendency(){ cell(cij) += cell_t * setups::dt; cell_t = 0; };
+    void updateTendency(){ cell(cij) += tendency * setups::dt; tendency = 0; };
 
     const char* getName(int) { return name.c_str(); }
 
@@ -83,41 +87,45 @@ public:
 
     int getSize(){ return 1; };
 
-    void wallConstruct(){ eno.construct(cell, wallx, wally, cij); }
+    void wallConstruct(){ 
+        constructor(cell, wallx, wally, cij); 
+    }
 
     std::string name;
     Interval<2> cxy, cij, sicj, cisj;
-    Array<2, Element_t> cell, cell_t;
+    Array<2, Element_t> cell, tendency, output;
     Array<2, Vector<2, Element_t> > wallx, wally;
-    EnoScheme<N> eno;
+    typename Cf::Constructor constructor;
 };
 
 // default template arguments may not be used in partial specializations
-template<int N, int S, class T, class B>
-class Variable<N, Vector<S, T>, B> : public VariableBase<T>, public B
+template<class Cf, class B, int S, class T, int ViewType>
+class Variable<Cf, B, Vector<S, T>, ViewType> : public VariableBase<T>, public B
 {
     typedef Vector<S, T> Element_t;
     typedef B Boundary_t;
 public:
     Variable(){for (int i = 0; i < S; i++) name[i] = new char[1];}
-    //Variable(char* _name[]){
     Variable(std::initializer_list<std::string> _name){
-        //for (int i = 0; i < S; i++){ name[i] = _name[i]; };
         int j = 0;
-        for (auto i = _name.begin(), j = 0; i != _name.end(); i++, j++) {
-            name[j] = *i;
+        for (auto i = _name.begin(), j = 0; i != _name.end(); i++, j++) { 
+            std::cout << j << std::endl;
+            name[j] = *i; 
         }
+        std::cout << name[0] << std::endl;
+        std::cout << name[1] << std::endl;
         cij = setups::cij;
         sicj = setups::sicj;
         cisj = setups::cisj;
 
-        Interval<1> cx(cij[0].first() - N, cij[0].last() + N);
-        Interval<1> cy(cij[1].first() - N, cij[1].last() + N);
+        int guard_layer = Cf::SpatialOrder;
+        Interval<1> cx(cij[0].first() - guard_layer, cij[0].last() + guard_layer);
+        Interval<1> cy(cij[1].first() - guard_layer, cij[1].last() + guard_layer);
         cxy = Interval<2>(cx, cy);
 
         cell.initialize(cxy); cell = 0;
-        cell_t.initialize(cij); cell_t = 0;
-        // this has to be cxy because eno(cell, wallx)
+        tendency.initialize(cij); tendency = 0;
+        output.initialize(cij); output = 0;
         wallx.initialize(sicj); wallx = 0;
         wally.initialize(cisj); wally = 0;
 
@@ -162,7 +170,7 @@ public:
 
     void fixBoundary(){ fix(cell, cij); }
 
-    void updateTendency(){ cell(cij) += cell_t * setups::dt; cell_t = 0;};
+    void updateTendency(){ cell(cij) += tendency * setups::dt; tendency = 0;};
 
     const char* getName(int s) { return name[s].c_str(); }
 
@@ -174,13 +182,13 @@ public:
 
     int getSize(){ return S; };
 
-    void wallConstruct(){ eno.construct(cell, wallx, wally, cij); }
+    void wallConstruct(){ constructor(cell, wallx, wally, cij); }
 
     std::string name[S];
     Interval<2> cxy, cij, sicj, cisj;
-    Array<2, Element_t> cell, cell_t;
+    Array<2, Element_t> cell, tendency, output;
     Array<2, Vector<2, Element_t> > wallx, wally;
-    EnoScheme<N> eno;
+    typename Cf::Constructor constructor;
 };
 
 template<class T>
