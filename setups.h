@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "jansson.h"
 #include <map>
+#include "configure.h"
 
 namespace setups{
     struct StrCmp{
@@ -14,12 +15,12 @@ namespace setups{
             return strcmp(a, b) < 0;
         }
     };
-    int nx, ny, frame;
+    int nx, ny, glayer, frame;
     long current;
     double xlen, ylen, dx, dy, start, end, dt;
     std::string ncfile = "dynamics.nc";
     std::map<std::string, Array<2, double> > ncvar;
-    Interval<2> cij, sij, sicj, cisj;
+    Interval<2> cij, sij, sicj, cisj, cxy;
 
     void initialize(){
         NcFile dataFile(ncfile.c_str(), NcFile::ReadOnly);
@@ -62,6 +63,8 @@ namespace setups{
         sij[1]  = Interval<1>(cij[1].first() - 1, cij[1].last() + 1);
         sicj    = Interval<2>(sij[0], cij[1]);
         cisj    = Interval<2>(cij[0], sij[1]);
+        glayer  = _SpatialOrder_;
+        cxy     = Interval<2>(Interval<1>(- glayer, nx - 1 + glayer), Interval<1>(- glayer, ny - 1 + glayer));
     }
 }
 

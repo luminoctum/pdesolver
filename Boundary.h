@@ -89,9 +89,7 @@ struct FixedConst{
     bool unset;
     Element_t lower, upper;
     Array<1, Element_t> left, right, bottom, top;
-    FixedConst(){
-        unset = true;
-    }
+    FixedConst(){ unset = true; }
     template<class A> void fix(A& a, const Interval<1>& ci) {
         Interval<1> cx = a.domain();
         int ifirst = ci.first(), ilast = ci.last();

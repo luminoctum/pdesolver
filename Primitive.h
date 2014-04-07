@@ -2,7 +2,6 @@
 #define PRIMITIVE
 #include <vector>
 #include "Variable.h"
-#include "utils.h"
 #include "Stencil.h"
 #include "MicroPhysics.h"
 
@@ -43,38 +42,39 @@ protected:
     }
 };
 
-template<class Cf>
 class Primitive : public ModelBase{
-    typedef typename Cf::Precision T;
+    typedef _AtomicType_ T;
 protected:
-    Stencil<typename Cf::FluxCalculatorX> fux;
-    Stencil<typename Cf::FluxCalculatorY> fuy;
+    Stencil<_FluxCalculator_<T, DimX> > fux;
+    Stencil<_FluxCalculator_<T, DimY> > fuy;
 
     double grav, T0, cp, f; Vector<2, T> eps;
-    VariableList<T> vlist;
-    Array<2, T> rdist, t_ov_tc, tv0, ptol, imassx, imassy;
+    Array<2, T> mass, rdist, t_ov_tc, tv0, ptol, imassx, imassy;
+
+    VariableList vlist;
     Water H2O; Ammonia NH3;
     CondensateList<2> species;
 public:
-    Variable<Cf, Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap> 
-        > mass, uwind, vwind;
-    Variable<Cf, Boundary<Mirror, FixedConst<T>, ConstExtrap, ConstExtrap>
+    Variable<T, Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap>
+        , MassView> uwind;
+    Variable<T, Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap> 
+        > vwind;
+    Variable<T, Boundary<Mirror, FixedConst<T>, ConstExtrap, ConstExtrap>
         > theta;
-    Variable<Cf, Boundary<Mirror, FixedConst<Vector<2, T> >, LinearExtrap, ConstExtrap>,
-        Vector<2, T> > mixr;
-    Variable<Cf, Boundary<Mirror, FixedConst<Vector<2, T> >, ConstExtrap, ConstExtrap>,
-        Vector<2, T> > svp, rh, liq;
-    Variable<Cf, Boundary<Mirror, Dependent, ConstExtrap, FixedConst<T> >
-        > wwind;
-    Variable<Cf, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
+    Variable<Vector<2, T>, Boundary<Mirror, FixedConst<Vector<2, T> >, LinearExtrap, ConstExtrap>
+        > mixr;
+    Variable<Vector<2, T>, Boundary<Mirror, FixedConst<Vector<2, T> >, ConstExtrap, ConstExtrap>
+        , AverageView> svp, rh, liq;
+    Variable<T, Boundary<Mirror, Dependent, ConstExtrap, FixedConst<T> >
+        , MassView> wwind;
+    Variable<T, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
         > phi;
-    Variable<Cf, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
+    Variable<T, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
         > temp, tempv;
-    Variable<Cf, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
+    Variable<T, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
         > pdry;
 
-    Primitive() : mass("mass"),
-        uwind("uwind"), vwind("vwind"), theta("tc"), mixr({"xH2O", "xNH3"}), 
+    Primitive() : uwind("uwind"), vwind("vwind"), theta("tc"), mixr({"xH2O", "xNH3"}), 
         wwind("wwind"), phi("phi"), temp("temp"), tempv("tempv"), pdry("pdry"),
         svp({"svpH2O", "svpNH3"}), rh({"hH2O", "hNH3"}), liq({"qH2O", "qNH3"}),
         H2O(1.3E-2), NH3(4E-4) ,species(H2O, NH3)
@@ -89,14 +89,11 @@ public:
         fux.function().xwind = &uwind.wallx;
         fuy.function().ywind = &wwind.wally;
 
-        _ncInitialize6_(rdist, t_ov_tc, tv0, ptol, imassx, imassy);
+        _ncInitialize7_(mass, rdist, t_ov_tc, tv0, ptol, imassx, imassy);
 
         vlist.mass = &mass;
-        vlist.mvar = {
-            &uwind, &wwind
-        };
-        vlist.uvar = {
-            &vwind, &theta, &mixr, &phi, &temp, &tempv, &pdry, &svp, &rh, &liq
+        vlist.var = {
+            &uwind, &vwind, &wwind, &theta, &mixr, &phi, &temp, &tempv, &pdry, &svp, &rh, &liq
         };
         vlist.pvar = {
             &uwind, &vwind, &theta, &mixr
@@ -114,8 +111,8 @@ public:
         finty(grav / T0 * (tempv.cell(cij) - tv0), phi.cell, cij);
     }
     void updateBodyforce(){
-        uwind.tendency += - mass.cell(cij) * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
-        vwind.tendency += - uwind.cell(cij) / mass.cell(cij) * (f + vwind.cell(cij) / rdist);
+        uwind.tendency += - mass * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
+        vwind.tendency += - uwind.cell(cij) / mass * (f + vwind.cell(cij) / rdist);
         //theta.tendency += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij)) / setups::dt;
     }
     void updateMicrophysics(){
@@ -126,7 +123,7 @@ public:
         rh.cell = mixr.cell * pdry.cell / svp.cell;
         // condensing liquid
         for (int s = 0; s < 2; s++){
-            rh.cell.comp(s) = where(rh.cell.comp(s) < 0., 0., rh.cell.comp(s));
+            //rh.cell.comp(s) = where(rh.cell.comp(s) < 0., 0., rh.cell.comp(s));
             liq.cell.comp(s) = where(rh.cell.comp(s) > 1.2, (rh.cell.comp(s) - 1.) * svp.cell.comp(s) / pdry.cell, 0.);
             rh.cell.comp(s) = where(liq.cell.comp(s) > 0., 1., rh.cell.comp(s));
         }
@@ -138,9 +135,9 @@ public:
         vlist.wallConstruct();
         binty( - fdx(fux(onesx)), wwind.wally, cij);
         uwind.tendency -= fdx(fux(uwind.wallx) * imassx) + fdy(fuy(uwind.wally) * imassy);
-        vwind.tendency -= (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass.cell(cij);
-        theta.tendency -= (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass.cell(cij);
-        mixr.tendency  -= (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass.cell(cij);
+        vwind.tendency -= (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass;
+        theta.tendency -= (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass;
+        mixr.tendency  -= (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass;
     }
     void dissipation(){
         uwind.tendency += 0.03 / setups::dt * laplace(uwind.cell, cij);
@@ -148,7 +145,7 @@ public:
     }
     void observe(int i, double _time){
         printf("%-6d%-8.1f%-8.1f%-6.0f%-6.0f%-12.2E%-12.2E%-12.2E\n", i, _time, 
-                max(uwind.cell(cij) / mass.cell(cij)), 
+                max(uwind.cell(cij) / mass), 
                 min(theta.cell(cij)), max(theta.cell(cij)), 
                 max(mixr.cell(cij).comp(0)), max(mixr.cell(cij).comp(1)),
                 max(cdy(wwind.cell, cij) + cdx(uwind.cell, cij))
@@ -156,6 +153,7 @@ public:
         vlist.ncwrite(_time);
     }
     void forward(){
+        vlist.step_count++;
         advection();
         dissipation();
         updateBodyforce();
@@ -163,7 +161,7 @@ public:
         vlist.updateTendency();
         vlist.fixBoundary();
         updateDiagnostics();
-        //vlist.printInfo(1);
+        vlist.updateView();
     }
 };
 
