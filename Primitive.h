@@ -9,6 +9,7 @@ class ModelBase{
 protected:
     Stencil<ElementSum> esum;
     Stencil<ElementAverage> eavg;
+    Stencil<Average> avg;
     Stencil<FiniteDifference<D1, O2, DimX> > cdx;
     Stencil<FiniteDifference<D1, O2, DimY> > cdy;
     Stencil<FiniteDifference<D1, O1, DimX> > fdx;
@@ -49,17 +50,18 @@ protected:
     Stencil<_FluxCalculator_<T, DimY> > fuy;
 
     double grav, T0, cp, f; Vector<2, T> eps;
-    Array<2, T> mass, rdist, t_ov_tc, tv0, ptol, imassx, imassy;
+    Array<2, T> mass, rdist, t_ov_tc, tv0, ptol, massx, massy;
 
     VariableList vlist;
     Water H2O; Ammonia NH3;
     CondensateList<2> species;
 public:
     Variable<T, Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap>
+    //Variable<T, Boundary<FixedConst<T>, ConstExtrap, ConstExtrap, ConstExtrap>
         , MassView> uwind;
     Variable<T, Boundary<Reflective, ConstExtrap, ConstExtrap, ConstExtrap> 
         > vwind;
-    Variable<T, Boundary<Mirror, FixedConst<T>, ConstExtrap, ConstExtrap>
+    Variable<T, Boundary<Mirror, FixedConst<T>, ConstExtrap, FixedConst<T> >
         > theta;
     Variable<Vector<2, T>, Boundary<Mirror, FixedConst<Vector<2, T> >, LinearExtrap, ConstExtrap>
         > mixr;
@@ -67,12 +69,8 @@ public:
         , AverageView> svp, rh, liq;
     Variable<T, Boundary<Mirror, Dependent, ConstExtrap, FixedConst<T> >
         , MassView> wwind;
-    Variable<T, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
-        > phi;
-    Variable<T, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
-        > temp, tempv;
-    Variable<T, Boundary<Mirror, FixedConst<T>, LinearExtrap, ConstExtrap>
-        > pdry;
+    Variable<T, Boundary<LinearExtrap, FixedConst<T>, LinearExtrap, ConstExtrap>
+        > phi, temp, tempv, pdry;
 
     Primitive() : uwind("uwind"), vwind("vwind"), theta("tc"), mixr({"xH2O", "xNH3"}), 
         wwind("wwind"), phi("phi"), temp("temp"), tempv("tempv"), pdry("pdry"),
@@ -89,7 +87,7 @@ public:
         fux.function().xwind = &uwind.wallx;
         fuy.function().ywind = &wwind.wally;
 
-        _ncInitialize7_(mass, rdist, t_ov_tc, tv0, ptol, imassx, imassy);
+        _ncInitialize7_(mass, rdist, t_ov_tc, tv0, ptol, massx, massy);
 
         vlist.mass = &mass;
         vlist.var = {
@@ -111,9 +109,10 @@ public:
         finty(grav / T0 * (tempv.cell(cij) - tv0), phi.cell, cij);
     }
     void updateBodyforce(){
-        uwind.tendency += - mass * (cdx(phi.cell, cij) + vwind.cell(cij) * (f + vwind.cell(cij) / rdist));
+        uwind.tendency += - fdx(avg(phi.cell(sicj)) * massx, cij) + mass * phi.cell(cij) / rdist
+            + mass * vwind.cell(cij) * (f + vwind.cell(cij) / rdist);
         vwind.tendency += - uwind.cell(cij) / mass * (f + vwind.cell(cij) / rdist);
-        //theta.tendency += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij)) / setups::dt;
+        theta.tendency += theta.cell(cij) / (cp * temp.cell(cij)) * esum(species.Lv * eps * liq.cell(cij)) / setups::dt;
     }
     void updateMicrophysics(){
         // saturation vapor pressure
@@ -133,8 +132,12 @@ public:
     }
     void advection(){
         vlist.wallConstruct();
-        binty( - fdx(fux(onesx)), wwind.wally, cij);
-        uwind.tendency -= fdx(fux(uwind.wallx) * imassx) + fdy(fuy(uwind.wally) * imassy);
+        /* uwind at the left boundary must be zero */
+        uwind.wallx(0, AllDomain<1>()).comp(0) = 0;
+        uwind.wallx(-1, AllDomain<1>()).comp(1) = 0;
+    
+        binty(- fdx(fux(onesx)), wwind.wally, cij);
+        uwind.tendency -= fdx(fux(uwind.wallx) / massx) + fdy(fuy(uwind.wally) / massy);
         vwind.tendency -= (fdx(fux(vwind.wallx)) + fdy(fuy(vwind.wally))) / mass;
         theta.tendency -= (fdx(fux(theta.wallx)) + fdy(fuy(theta.wally))) / mass;
         mixr.tendency  -= (fdx(fux(mixr.wallx)) + fdy(fuy(mixr.wally))) / mass;
@@ -155,12 +158,12 @@ public:
     void forward(){
         vlist.step_count++;
         advection();
-        dissipation();
         updateBodyforce();
+        dissipation();
         updateMicrophysics();
         vlist.updateTendency();
-        vlist.fixBoundary();
         updateDiagnostics();
+        vlist.fixBoundary();
         vlist.updateView();
     }
 };

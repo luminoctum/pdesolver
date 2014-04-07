@@ -134,6 +134,10 @@ struct Average{
         operator()(const A& a, int i) const{
             return 0.5 * (a.read(i) + a.read(i + 1));
         }
+    template<class A> inline typename A::Element_t
+        operator()(const A& a, int i, int j) const{
+            return 0.5 * (a.read(i, j) + a.read(i + 1, j));
+        }
     inline int lowerExtent(int) const { return 0;}
     inline int upperExtent(int) const { return 1;}
 };
